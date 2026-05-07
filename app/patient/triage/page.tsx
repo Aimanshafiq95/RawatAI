@@ -18,7 +18,7 @@ const FacilityMap = dynamic(() => import("@/components/FacilityMap"), { ssr: fal
 
 type Priority = "P1" | "P2" | "P3";
 type Lang = "en" | "bm";
-type CardStep = "symptoms" | "questions" | "location" | "loading" | "result" | "error";
+type CardStep = "symptoms" | "questions" | "pain" | "location" | "loading" | "result" | "error";
 
 interface AssignedDoctor {
   id: string; name: string; specialty: string;
@@ -33,6 +33,8 @@ interface TriageResult {
   recommended?: Facility; alternatives?: Facility[];
   estimated_wait?: number; assigned_doctor?: AssignedDoctor;
   doctor_response_minutes?: number;
+  pain_severity_factor?: "elevates" | "neutral";
+  pain_score?: number; pain_location?: string;
 }
 interface FollowUpQuestion { text: string; options: string[]; }
 interface CompletedCard { title: string; summary: string; }
@@ -165,6 +167,10 @@ export default function TriagePage() {
   const [followUpQs, setFollowUpQs]   = useState<FollowUpQuestion[]>([]);
   const [currentQIdx, setCurrentQIdx] = useState(0);
   const [answers, setAnswers]         = useState<string[]>([]);
+
+  // Pain card (NRS 0–10)
+  const [painScore, setPainScore]     = useState(0);
+  const [painLocation, setPainLocation] = useState<string>("");
   const [loadingQs, setLoadingQs]     = useState(false);
 
   // Location card
@@ -271,8 +277,18 @@ export default function TriagePage() {
     } else {
       const summaryParts = newAnswers.map((a, i) => `${followUpQs[i]?.text.split("?")[0]}: ${a}`);
       pushCompleted(lang === "bm" ? "Maklumat Lanjut" : "Follow-up", summaryParts[0] ?? option);
-      setCardStep("location");
+      setCardStep("pain");
     }
+  }
+
+  function submitPain() {
+    if (painScore > 0) {
+      const loc = painLocation ? ` · ${painLocation}` : "";
+      pushCompleted(lang === "bm" ? "Skor Sakit" : "Pain Score", `${painScore}/10${loc}`);
+    } else {
+      pushCompleted(lang === "bm" ? "Skor Sakit" : "Pain Score", lang === "bm" ? "Tiada sakit" : "No pain");
+    }
+    setCardStep("location");
   }
 
   // ── Step: Location → run triage ────────────────────────────────────────────
@@ -312,7 +328,16 @@ export default function TriagePage() {
 
       const tRes = await fetch("/api/triage", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symptoms: symptomsText, history: user?.history ?? {}, session_id: sid, lang, answers, questions: followUpQs }),
+        body: JSON.stringify({
+          symptoms: symptomsText,
+          history: user?.history ?? {},
+          session_id: sid,
+          lang,
+          answers,
+          questions: followUpQs,
+          pain_score: painScore,
+          pain_location: painLocation || undefined,
+        }),
       });
       if (!tRes.ok) { const e = await tRes.json().catch(() => ({})); throw new Error(e.error ?? `Triage failed (${tRes.status})`); }
       const tData = await tRes.json();
@@ -371,6 +396,8 @@ export default function TriagePage() {
         estimated_wait: tData.estimated_wait_minutes ?? rData.recommended?.estimated_wait ?? (tData.priority === "P1" ? 5 : tData.priority === "P2" ? 20 : 45),
         assigned_doctor: aData.doctor,
         doctor_response_minutes: aData.estimated_response_minutes,
+        pain_score: painScore,
+        pain_location: painLocation || undefined,
       });
       await new Promise((r) => setTimeout(r, 600));
       setCardStep("result");
@@ -385,6 +412,7 @@ export default function TriagePage() {
     setActiveAgents({}); setAgentLogs([]); setSurgeWarning(null); setCurrentAgent("");
     setBookingConfirmed(false); setSelectedSymptoms([]); setFreeText("");
     setFollowUpQs([]); setCurrentQIdx(0); setAnswers([]);
+    setPainScore(0); setPainLocation("");
     setLocation(null); setLocLabel(""); setSelectedCity(""); setLocMode("dropdown");
     setCompletedCards([]);
     logTimers.current.forEach(clearTimeout);
@@ -423,7 +451,7 @@ export default function TriagePage() {
         </div>
 
         {/* ── Stacked card area ──────────────────────────────────────────────── */}
-        {(cardStep === "symptoms" || cardStep === "questions" || cardStep === "location") && (
+        {(cardStep === "symptoms" || cardStep === "questions" || cardStep === "pain" || cardStep === "location") && (
           <div style={{ display: "flex", gap: "2.5rem", alignItems: "flex-start", width: "100%" }}>
 
           {/* LEFT: card stack */}
@@ -524,7 +552,7 @@ export default function TriagePage() {
                     <p style={{ fontSize: "0.9rem", color: "#6B7280", marginBottom: "1rem" }}>
                       {lang === "bm" ? "Tiada soalan tambahan diperlukan." : "No follow-up questions needed."}
                     </p>
-                    <button onClick={() => { pushCompleted(lang === "bm" ? "Maklumat Lanjut" : "Follow-up", lang === "bm" ? "Tiada soalan" : "No questions needed"); setCardStep("location"); }}
+                    <button onClick={() => { pushCompleted(lang === "bm" ? "Maklumat Lanjut" : "Follow-up", lang === "bm" ? "Tiada soalan" : "No questions needed"); setCardStep("pain"); }}
                       style={{ padding: "0.75rem 1.5rem", background: "#1A56DB", color: "#fff", border: "none", borderRadius: "0.625rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       {lang === "bm" ? "Seterusnya" : "Continue"} <RiArrowRightLine size={16} />
                     </button>
@@ -564,11 +592,74 @@ export default function TriagePage() {
               </div>
             )}
 
+            {/* ── ACTIVE: Pain Score (NRS 0–10) ── */}
+            {cardStep === "pain" && (
+              <div className="card" style={{ animation: "slideUp 0.35s cubic-bezier(.22,.68,0,1.2)", padding: "1.75rem" }}>
+                <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.375rem" }}>
+                  {lang === "bm" ? "Langkah 3" : "Step 3"}
+                </div>
+                <h2 style={{ fontSize: "1.15rem", fontWeight: 700, color: "#111827", marginBottom: "0.25rem" }}>
+                  {lang === "bm" ? "Skor kesakitan anda?" : "How bad is the pain?"}
+                </h2>
+                <p style={{ fontSize: "0.85rem", color: "#6B7280", marginBottom: "1.25rem" }}>
+                  {lang === "bm" ? "0 = tiada sakit, 10 = paling teruk" : "0 = no pain, 10 = worst possible"}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.875rem", marginBottom: "1rem" }}>
+                  <input type="range" min={0} max={10} step={1} value={painScore}
+                    onChange={(e) => setPainScore(Number(e.target.value))}
+                    style={{ flex: 1, accentColor: painScore >= 8 ? "#E02424" : painScore >= 4 ? "#D97706" : painScore > 0 ? "#1A56DB" : "#9CA3AF" }} />
+                  <div style={{ minWidth: 64, textAlign: "center", padding: "0.4rem 0.625rem", borderRadius: "0.5rem", fontWeight: 700, fontSize: "1rem",
+                    background: painScore >= 8 ? "#FEE2E2" : painScore >= 4 ? "#FEF3C7" : painScore > 0 ? "#EFF6FF" : "#F3F4F6",
+                    color:      painScore >= 8 ? "#E02424" : painScore >= 4 ? "#92400E" : painScore > 0 ? "#1A56DB" : "#6B7280" }}>
+                    {painScore}/10
+                  </div>
+                </div>
+                {painScore > 0 && (
+                  <div style={{ marginBottom: "1.25rem" }}>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#374151", marginBottom: "0.5rem" }}>
+                      {lang === "bm" ? "Lokasi sakit (pilihan)" : "Pain location (optional)"}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                      {(["chest","abdomen","head","back","limb","other"] as const).map((loc) => {
+                        const labels: Record<string, { en: string; bm: string }> = {
+                          chest:   { en: "Chest",   bm: "Dada" },
+                          abdomen: { en: "Abdomen", bm: "Perut" },
+                          head:    { en: "Head",    bm: "Kepala" },
+                          back:    { en: "Back",    bm: "Belakang" },
+                          limb:    { en: "Limb",    bm: "Anggota" },
+                          other:   { en: "Other",   bm: "Lain" },
+                        };
+                        const active = painLocation === loc;
+                        return (
+                          <button key={loc} type="button" onClick={() => setPainLocation(active ? "" : loc)}
+                            style={{ padding: "0.4rem 0.85rem", borderRadius: 9999, border: active ? "1.5px solid #1A56DB" : "1px solid #E5E7EB",
+                              background: active ? "#EFF6FF" : "#fff", color: active ? "#1A56DB" : "#374151",
+                              cursor: "pointer", fontSize: "0.82rem", fontWeight: active ? 600 : 500 }}>
+                            {labels[loc][lang]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "0.625rem", justifyContent: "flex-end" }}>
+                  <button type="button" onClick={() => { setPainScore(0); setPainLocation(""); submitPain(); }}
+                    style={{ padding: "0.7rem 1.1rem", background: "#fff", color: "#374151", border: "1px solid #E5E7EB", borderRadius: "0.625rem", fontWeight: 600, cursor: "pointer" }}>
+                    {lang === "bm" ? "Tiada Sakit" : "No Pain"}
+                  </button>
+                  <button type="button" onClick={submitPain}
+                    style={{ padding: "0.7rem 1.25rem", background: "#1A56DB", color: "#fff", border: "none", borderRadius: "0.625rem", fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    {lang === "bm" ? "Seterusnya" : "Continue"} <RiArrowRightLine size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ── ACTIVE: Location ── */}
             {cardStep === "location" && (
               <div className="card" style={{ animation: "slideUp 0.35s cubic-bezier(.22,.68,0,1.2)", padding: "1.75rem" }}>
                 <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: "0.375rem" }}>
-                  {lang === "bm" ? "Langkah 3" : "Step 3"}
+                  {lang === "bm" ? "Langkah 4" : "Step 4"}
                 </div>
                 <h2 style={{ fontSize: "1.2rem", fontWeight: 700, color: "#111827", marginBottom: "0.35rem" }}>
                   {lang === "bm" ? "Di mana anda sekarang?" : "Where are you located?"}
@@ -637,8 +728,8 @@ export default function TriagePage() {
               </p>
               {/* Step progress */}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
-                {(["symptoms", "questions", "location"] as const).map((s, i) => {
-                  const stepOrder = { symptoms: 0, questions: 1, location: 2 };
+                {(["symptoms", "questions", "pain", "location"] as const).map((s, i) => {
+                  const stepOrder = { symptoms: 0, questions: 1, pain: 2, location: 3 };
                   const currentOrder = stepOrder[cardStep as keyof typeof stepOrder] ?? 0;
                   const done = i < currentOrder;
                   const active = i === currentOrder;
@@ -657,15 +748,16 @@ export default function TriagePage() {
                           : <span style={{ fontSize: "0.7rem", fontWeight: 700, color: active ? "#fff" : "#9CA3AF" }}>{i + 1}</span>
                         }
                       </div>
-                      {i < 2 && <div style={{ width: 28, height: 2, background: done ? "#059669" : "#E5E7EB", borderRadius: 1, transition: "background 0.3s" }} />}
+                      {i < 3 && <div style={{ width: 28, height: 2, background: done ? "#059669" : "#E5E7EB", borderRadius: 1, transition: "background 0.3s" }} />}
                     </div>
                   );
                 })}
               </div>
               <div style={{ fontSize: "0.72rem", color: "#9CA3AF", marginTop: "0.625rem", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                {cardStep === "symptoms" ? (lang === "bm" ? "Langkah 1 daripada 3" : "Step 1 of 3")
-                  : cardStep === "questions" ? (lang === "bm" ? "Langkah 2 daripada 3" : "Step 2 of 3")
-                  : (lang === "bm" ? "Langkah 3 daripada 3" : "Step 3 of 3")}
+                {cardStep === "symptoms" ? (lang === "bm" ? "Langkah 1 daripada 4" : "Step 1 of 4")
+                  : cardStep === "questions" ? (lang === "bm" ? "Langkah 2 daripada 4" : "Step 2 of 4")
+                  : cardStep === "pain" ? (lang === "bm" ? "Langkah 3 daripada 4" : "Step 3 of 4")
+                  : (lang === "bm" ? "Langkah 4 daripada 4" : "Step 4 of 4")}
               </div>
             </div>
           </div>
@@ -752,9 +844,20 @@ export default function TriagePage() {
 
               {/* Priority banner */}
               <div style={{ background: pc.bg, border: `1.5px solid ${pc.border}`, borderRadius: "0.875rem", padding: "1.25rem 1.5rem" }}>
-                <span className="font-heading" style={{ fontSize: "1.35rem", color: pc.color }}>
-                  {lang === "en" ? PRIORITY_LABEL_EN[result.priority] : PRIORITY_CONFIG[result.priority].label}
-                </span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.5rem" }}>
+                  <span className="font-heading" style={{ fontSize: "1.35rem", color: pc.color }}>
+                    {lang === "en" ? PRIORITY_LABEL_EN[result.priority] : PRIORITY_CONFIG[result.priority].label}
+                  </span>
+                  {typeof result.pain_score === "number" && result.pain_score > 0 && (
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem", padding: "0.25rem 0.625rem", borderRadius: 9999, background: "#fff", border: `1px solid ${pc.border}`, fontSize: "0.78rem", fontWeight: 700, color: pc.color }}>
+                      {lang === "bm" ? "Sakit" : "Pain"} {result.pain_score}/10
+                      {result.pain_location && <span style={{ color: "#6B7280", fontWeight: 500 }}>· {result.pain_location}</span>}
+                      {result.pain_severity_factor === "elevates" && (
+                        <span title={lang === "bm" ? "Sakit menaikkan keutamaan" : "Pain elevated priority"} style={{ marginLeft: "0.25rem", fontSize: "0.7rem" }}>↑</span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <p style={{ fontSize: "0.875rem", color: "#374151", marginTop: "0.4rem", lineHeight: 1.65 }}>{result.summary}</p>
               </div>
 

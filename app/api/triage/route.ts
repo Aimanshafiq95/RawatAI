@@ -19,6 +19,14 @@ Priority levels — be clinically strict:
 - P3 (Non-urgent): Klinik Kesihatan — fever <38.5°C for ≤2 days with no red flags,
   mild cough/cold, minor rash, routine follow-up
 
+PAIN SCORING (Numeric Rating Scale 0–10) — applied when a pain score is provided:
+- 8–10 (severe): minimum P2. If pain location is chest, abdomen, head, or back → P1.
+- 4–7  (moderate): P2 minimum for chest, abdominal, cardiac, or trauma-related complaints.
+- 1–3  (mild): does not change priority on its own.
+- 0    (no pain): no effect.
+Treat the pain score as a hard floor — never assign a priority lower than what the pain rule allows.
+When the pain score elevates priority, set "pain_severity_factor" to "elevates" and reflect this in reasoning_steps.
+
 RULES:
 - Duration matters: ANY fever lasting more than 2 days must be at least P2
 - Pre-existing conditions RAISE urgency: hypertension + fever = P2 minimum; diabetes + fever = P2 minimum
@@ -34,6 +42,7 @@ JSON format (ONLY this, no extra text):
   "key_symptoms": ["symptom1", "symptom2"],
   "requires_icu": false,
   "estimated_wait_minutes": 20,
+  "pain_severity_factor": "elevates|neutral",
   "reasoning_steps": ["step1", "step2", "step3"]
 }`;
 }
@@ -41,9 +50,20 @@ JSON format (ONLY this, no extra text):
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { symptoms, history, session_id, lang = "en", answers = [], questions = [] } = body;
+    const {
+      symptoms,
+      history,
+      vision_findings,
+      session_id,
+      lang = "en",
+      answers = [],
+      questions = [],
+      pain_score,
+      pain_location,
+    } = body;
 
     const contextParts: string[] = [`Patient symptoms: ${symptoms}`];
+    if (vision_findings)                     contextParts.push(`Image analysis: ${vision_findings}`);
     if (history?.allergies?.length)          contextParts.push(`Allergies: ${history.allergies.join(", ")}`);
     if (history?.chronic_conditions?.length) contextParts.push(`Chronic conditions: ${history.chronic_conditions.join(", ")}`);
     if (history?.current_medications?.length) contextParts.push(`Medications: ${history.current_medications.join(", ")}`);
@@ -54,6 +74,11 @@ export async function POST(req: NextRequest) {
         const q = questions[i]?.text ?? `Question ${i + 1}`;
         contextParts.push(`  - ${q} → ${ans}`);
       });
+    }
+
+    if (typeof pain_score === "number" && pain_score > 0) {
+      const loc = pain_location ? ` at ${pain_location}` : "";
+      contextParts.push(`Pain score (NRS 0–10): ${pain_score}/10${loc}`);
     }
 
     const response = await groq.chat.completions.create({
