@@ -31,6 +31,8 @@ interface TriageResult {
   recommended?: Facility; alternatives?: Facility[];
   estimated_wait?: number; assigned_doctor?: AssignedDoctor;
   doctor_response_minutes?: number;
+  pain_severity_factor?: "elevates" | "neutral";
+  pain_score?: number; pain_location?: string;
 }
 
 const PRIORITY_CONFIG: Record<Priority, { label: string; color: string; bg: string; border: string }> = {
@@ -141,6 +143,8 @@ export default function TriagePage() {
   const [user, setUser]               = useState<any>(null);
   const [step, setStep]               = useState<"form"|"loading"|"result"|"error">("form");
   const [symptoms, setSymptoms]       = useState("");
+  const [painScore, setPainScore]     = useState(0);
+  const [painLocation, setPainLocation] = useState<string>("");
   const [photo, setPhoto]             = useState<string|null>(null);
   const [photoPreview, setPhotoPreview] = useState<string|null>(null);
   const [location, setLocation]       = useState<{lat:number;lon:number}|null>(null);
@@ -273,7 +277,7 @@ export default function TriagePage() {
       const triageWait = streamLogs("triage");
       await new Promise(r => setTimeout(r, triageWait));
 
-      const tRes = await fetch("/api/triage", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({symptoms, history:user?.history??{}, vision_findings:visionFindings, session_id:sid, lang}) });
+      const tRes = await fetch("/api/triage", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({symptoms, history:user?.history??{}, vision_findings:visionFindings, session_id:sid, lang, pain_score:painScore, pain_location:painLocation || undefined}) });
       if (!tRes.ok) { const e = await tRes.json().catch(()=>({})); throw new Error(e.error??`Triage failed (${tRes.status})`); }
       const tData = await tRes.json();
 
@@ -331,6 +335,8 @@ export default function TriagePage() {
         estimated_wait: tData.estimated_wait_minutes ?? rData.recommended?.estimated_wait ?? (tData.priority==="P1"?5:tData.priority==="P2"?20:45),
         assigned_doctor: aData.doctor,
         doctor_response_minutes: aData.estimated_response_minutes,
+        pain_score: painScore,
+        pain_location: painLocation || undefined,
       });
       await new Promise(r => setTimeout(r, 600));
       setStep("result");
@@ -343,6 +349,7 @@ export default function TriagePage() {
   function reset() {
     setStep("form"); setResult(null); setTriageError(""); setActiveAgents({});
     setAgentLogs([]); setSurgeWarning(null); setCurrentAgent(""); setBookingConfirmed(false);
+    setPainScore(0); setPainLocation("");
     logTimers.current.forEach(clearTimeout);
   }
 
@@ -397,6 +404,57 @@ export default function TriagePage() {
                 <textarea rows={5} value={symptoms} onChange={(e) => setSymptoms(e.target.value)}
                   placeholder={lang==="bm" ? "cth. Saya demam 38.5°C selama 2 hari dengan sakit badan..." : "e.g. I have had a fever of 38.5°C for 2 days with body aches..."}
                   style={{resize:"none"}} />
+              </div>
+
+              {/* Pain score (NRS 0–10) */}
+              <div className="card">
+                <div style={{display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"0.625rem"}}>
+                  <label style={{fontSize:"0.8rem", fontWeight:700, color:"#374151"}}>
+                    {lang==="bm" ? "Skor kesakitan" : "Pain score"}
+                  </label>
+                  <span style={{fontSize:"0.72rem", color:"#9CA3AF"}}>
+                    {lang==="bm" ? "0 = tiada, 10 = paling teruk" : "0 = none, 10 = worst"}
+                  </span>
+                </div>
+                <div style={{display:"flex", alignItems:"center", gap:"0.875rem", marginBottom:"0.875rem"}}>
+                  <input type="range" min={0} max={10} step={1} value={painScore}
+                    onChange={(e) => setPainScore(Number(e.target.value))}
+                    style={{flex:1, accentColor: painScore >= 8 ? "#E02424" : painScore >= 4 ? "#D97706" : painScore > 0 ? "#1A56DB" : "#9CA3AF"}} />
+                  <div style={{minWidth:56, textAlign:"center", padding:"0.35rem 0.5rem", borderRadius:"0.5rem", fontWeight:700, fontSize:"0.95rem",
+                    background: painScore >= 8 ? "#FEE2E2" : painScore >= 4 ? "#FEF3C7" : painScore > 0 ? "#EFF6FF" : "#F3F4F6",
+                    color:      painScore >= 8 ? "#E02424" : painScore >= 4 ? "#92400E" : painScore > 0 ? "#1A56DB" : "#6B7280"}}>
+                    {painScore}/10
+                  </div>
+                </div>
+                {painScore > 0 && (
+                  <div>
+                    <div style={{fontSize:"0.72rem", fontWeight:600, color:"#6B7280", marginBottom:"0.4rem"}}>
+                      {lang==="bm" ? "Lokasi sakit (pilihan)" : "Pain location (optional)"}
+                    </div>
+                    <div style={{display:"flex", flexWrap:"wrap", gap:"0.375rem"}}>
+                      {(["chest","abdomen","head","back","limb","other"] as const).map((loc) => {
+                        const labels: Record<string, {en:string; bm:string}> = {
+                          chest:   {en:"Chest",   bm:"Dada"},
+                          abdomen: {en:"Abdomen", bm:"Perut"},
+                          head:    {en:"Head",    bm:"Kepala"},
+                          back:    {en:"Back",    bm:"Belakang"},
+                          limb:    {en:"Limb",    bm:"Anggota"},
+                          other:   {en:"Other",   bm:"Lain"},
+                        };
+                        const active = painLocation === loc;
+                        return (
+                          <button key={loc} type="button"
+                            onClick={() => setPainLocation(active ? "" : loc)}
+                            style={{padding:"0.3rem 0.75rem", borderRadius:9999, border: active?"1.5px solid #1A56DB":"1px solid #E5E7EB",
+                              background: active?"#EFF6FF":"#fff", color: active?"#1A56DB":"#374151",
+                              cursor:"pointer", fontSize:"0.78rem", fontWeight: active?600:500}}>
+                            {labels[loc][lang]}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Photo */}
@@ -573,9 +631,20 @@ export default function TriagePage() {
 
             {/* Priority banner — no wait time */}
             <div style={{background:pc.bg,border:`1.5px solid ${pc.border}`,borderRadius:"0.875rem",padding:"1.25rem 1.5rem"}}>
-              <span className="font-heading" style={{fontSize:"1.35rem",color:pc.color}}>
-                {lang==="en" ? PRIORITY_LABEL_EN[result.priority] : PRIORITY_CONFIG[result.priority].label}
-              </span>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:"0.5rem"}}>
+                <span className="font-heading" style={{fontSize:"1.35rem",color:pc.color}}>
+                  {lang==="en" ? PRIORITY_LABEL_EN[result.priority] : PRIORITY_CONFIG[result.priority].label}
+                </span>
+                {typeof result.pain_score === "number" && result.pain_score > 0 && (
+                  <div style={{display:"inline-flex",alignItems:"center",gap:"0.4rem",padding:"0.25rem 0.625rem",borderRadius:9999,background:"#fff",border:`1px solid ${pc.border}`,fontSize:"0.78rem",fontWeight:700,color:pc.color}}>
+                    {lang==="bm" ? "Sakit" : "Pain"} {result.pain_score}/10
+                    {result.pain_location && <span style={{color:"#6B7280",fontWeight:500}}>· {result.pain_location}</span>}
+                    {result.pain_severity_factor === "elevates" && (
+                      <span title={lang==="bm"?"Sakit menaikkan keutamaan":"Pain elevated priority"} style={{marginLeft:"0.25rem",fontSize:"0.7rem"}}>↑</span>
+                    )}
+                  </div>
+                )}
+              </div>
               <p style={{fontSize:"0.875rem",color:"#374151",marginTop:"0.4rem",lineHeight:1.65}}>{result.summary}</p>
             </div>
 
