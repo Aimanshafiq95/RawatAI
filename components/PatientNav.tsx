@@ -10,7 +10,7 @@ import {
 
 const NAV_ITEMS = [
   { href: "/patient/dashboard", icon: RiDashboardLine, label: "Dashboard" },
-  { href: "/patient/triage",    icon: RiStethoscopeLine, label: "New Assessment" },
+  { href: "/patient/triage",    icon: RiStethoscopeLine, label: "Assessment" },
   { href: "/patient/history",   icon: RiFileList3Line,   label: "History" },
 ];
 
@@ -23,14 +23,39 @@ export default function PatientNav({ user }: { user: any }) {
   }
 
   return (
-    <aside style={{
-      width: 220, minHeight: "100vh", background: "#fff",
-      borderRight: "1px solid #E5E7EB", display: "flex",
-      flexDirection: "column", padding: "0",
-      position: "fixed", top: 0, left: 0, zIndex: 100,
-    }}>
+    <>
+      {/* ── Mobile-only top header bar ─────────────────────────────────── */}
+      <div className="nav-mobile-topbar">
+        {/* Left: brand */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <img src="/logo.png" alt="Malaysia" style={{ height: 30, width: "auto", objectFit: "contain" }} />
+          <span className="font-heading" style={{ fontSize: "1.15rem", color: "#1A56DB", letterSpacing: "0.03em" }}>
+            RawatAI
+          </span>
+        </div>
+        {/* Right: user badge */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <div style={{ textAlign: "right", maxWidth: 110, overflow: "hidden" }}>
+            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {user?.name?.split(" ")[0] ?? "Patient"}
+            </div>
+            <div style={{ fontSize: "0.65rem", color: "#6B7280" }}>Patient</div>
+          </div>
+          <div style={{
+            width: 36, height: 36, borderRadius: "50%",
+            background: "#1A56DB",
+            display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}>
+            <span className="font-heading" style={{ fontSize: "0.95rem", color: "#fff" }}>
+              {user?.name?.[0] ?? "P"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+    <aside className="patient-nav">
       {/* Brand */}
-      <div style={{ padding: "1.25rem 1.25rem 1rem", borderBottom: "1px solid #F3F4F6" }}>
+      <div className="nav-brand">
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <img src="/logo.png" alt="Malaysia" style={{ height: 30, width: "auto", objectFit: "contain", flexShrink: 0 }} />
           <span className="font-heading" style={{ fontSize: "1.1rem", color: "#1A56DB", letterSpacing: "0.03em" }}>
@@ -40,7 +65,7 @@ export default function PatientNav({ user }: { user: any }) {
       </div>
 
       {/* User info */}
-      <div style={{ padding: "1.25rem", borderBottom: "1px solid #F3F4F6" }}>
+      <div className="nav-user-info">
         <div style={{
           width: 40, height: 40, borderRadius: "50%", background: "#EFF6FF",
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -57,21 +82,19 @@ export default function PatientNav({ user }: { user: any }) {
       </div>
 
       {/* Nav links */}
-      <nav style={{ flex: 1, padding: "1rem 0.75rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+      <nav className="nav-links">
         {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
           const active = pathname === href;
           return (
-            <Link key={href} href={href} style={{ textDecoration: "none" }}>
-              <div style={{
-                display: "flex", alignItems: "center", gap: "0.625rem",
-                padding: "0.625rem 0.75rem", borderRadius: "0.5rem",
+            <Link key={href} href={href} style={{ textDecoration: "none", display: "flex", flex: "1 1 0" }}>
+              <div className="nav-link-item" style={{
                 background: active ? "#EFF6FF" : "transparent",
                 color: active ? "#1A56DB" : "#374151",
                 fontWeight: active ? 600 : 500,
-                fontSize: "0.875rem", transition: "all 0.15s", cursor: "pointer",
+                fontFamily: "Montserrat, sans-serif",
               }}>
                 <Icon size={18} />
-                {label}
+                <span className="nav-link-label">{label}</span>
               </div>
             </Link>
           );
@@ -79,18 +102,16 @@ export default function PatientNav({ user }: { user: any }) {
       </nav>
 
       {/* Sign out */}
-      <div style={{ padding: "1rem 0.75rem", borderTop: "1px solid #F3F4F6" }}>
-        <button onClick={signOut} style={{
-          display: "flex", alignItems: "center", gap: "0.625rem",
-          width: "100%", padding: "0.625rem 0.75rem", borderRadius: "0.5rem",
+      <div className="nav-sign-out-wrap">
+        <button onClick={signOut} className="nav-sign-out-btn" style={{
           background: "none", border: "none", cursor: "pointer",
-          color: "#E02424", fontWeight: 500, fontSize: "0.875rem",
-          fontFamily: "Montserrat, sans-serif",
+          color: "#E02424", fontFamily: "Montserrat, sans-serif",
         }}>
           <RiLogoutBoxLine size={18} />
-          Sign Out
+          <span className="nav-sign-out-label">Sign Out</span>
         </button>
       </div>
     </aside>
+    </>
   );
 }

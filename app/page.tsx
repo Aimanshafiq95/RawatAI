@@ -98,6 +98,7 @@ const STATS = [
 
 export default function Home() {
   const [scrolled, setScrolled] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
@@ -111,38 +112,78 @@ export default function Home() {
       {/* ── STICKY NAV ─────────────────────────────────────────────────── */}
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        background: scrolled ? "rgba(255,255,255,0.95)" : "transparent",
-        backdropFilter: scrolled ? "blur(12px)" : "none",
-        borderBottom: scrolled ? "1px solid #E5E7EB" : "none",
-        padding: "1rem 2.5rem",
-        display: "flex", justifyContent: "space-between", alignItems: "center",
+        background: scrolled || navOpen ? "rgba(255,255,255,0.97)" : "transparent",
+        backdropFilter: scrolled || navOpen ? "blur(12px)" : "none",
+        borderBottom: scrolled || navOpen ? "1px solid #E5E7EB" : "none",
+        padding: "1rem 2rem",
         transition: "all 0.25s",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
-          <img src="/logo.png" alt="Malaysia Coat of Arms" style={{ height: 36, width: "auto", objectFit: "contain" }} />
-          <span className="font-heading" style={{ fontSize: "1.5rem", color: scrolled ? "#1A56DB" : "#fff", letterSpacing: "0.05em", transition: "color 0.25s" }}>
-            RawatAI
-          </span>
+        {/* Top row */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+            <img src="/logo.png" alt="Malaysia Coat of Arms" style={{ height: 36, width: "auto", objectFit: "contain" }} />
+            <span className="font-heading" style={{ fontSize: "1.5rem", color: scrolled || navOpen ? "#1A56DB" : "#fff", letterSpacing: "0.05em", transition: "color 0.25s" }}>
+              RawatAI
+            </span>
+          </div>
+
+          {/* Desktop links */}
+          <div className="home-nav-links" style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
+            <div style={{ display: "flex", gap: "1.75rem" }}>
+              {NAV_LINKS.map((l) => (
+                <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`}
+                  style={{ fontSize: "0.875rem", fontWeight: 500, color: scrolled ? "#374151" : "rgba(255,255,255,0.85)", textDecoration: "none", transition: "color 0.2s" }}>
+                  {l}
+                </a>
+              ))}
+            </div>
+            <Link href="/login">
+              <button style={{
+                background: "#1A56DB", color: "#fff", border: "none", borderRadius: 9999,
+                padding: "0.5rem 1.375rem", fontSize: "0.875rem", fontWeight: 600,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: "0.375rem",
+              }}>
+                Start Triage <RiArrowRightLine size={15} />
+              </button>
+            </Link>
+          </div>
+
+          {/* Hamburger (mobile only) */}
+          <button className="home-hamburger" onClick={() => setNavOpen(!navOpen)} style={{
+            display: "none", background: "none", border: "none", cursor: "pointer",
+            padding: "0.25rem", color: scrolled || navOpen ? "#111827" : "#fff",
+          }}>
+            <div style={{ width: 22, height: 2, background: "currentColor", borderRadius: 2, marginBottom: 5, transition: "all 0.2s", transform: navOpen ? "rotate(45deg) translate(5px,5px)" : "none" }} />
+            <div style={{ width: 22, height: 2, background: "currentColor", borderRadius: 2, marginBottom: 5, transition: "all 0.2s", opacity: navOpen ? 0 : 1 }} />
+            <div style={{ width: 22, height: 2, background: "currentColor", borderRadius: 2, transition: "all 0.2s", transform: navOpen ? "rotate(-45deg) translate(5px,-5px)" : "none" }} />
+          </button>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "2rem" }}>
-          <div style={{ display: "flex", gap: "1.75rem" }}>
+
+        {/* Mobile menu */}
+        {navOpen && (
+          <div className="home-mobile-menu" style={{
+            paddingTop: "1rem", paddingBottom: "0.5rem",
+            display: "flex", flexDirection: "column", gap: "0.125rem",
+          }}>
             {NAV_LINKS.map((l) => (
               <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`}
-                style={{ fontSize: "0.875rem", fontWeight: 500, color: scrolled ? "#374151" : "rgba(255,255,255,0.85)", textDecoration: "none", transition: "color 0.2s" }}>
+                onClick={() => setNavOpen(false)}
+                style={{ fontSize: "0.95rem", fontWeight: 500, color: "#374151", textDecoration: "none", padding: "0.625rem 0.25rem", borderBottom: "1px solid #F3F4F6" }}>
                 {l}
               </a>
             ))}
+            <Link href="/login" onClick={() => setNavOpen(false)}>
+              <button style={{
+                marginTop: "0.75rem", width: "100%", background: "#1A56DB", color: "#fff",
+                border: "none", borderRadius: "0.5rem", padding: "0.75rem", fontSize: "0.95rem",
+                fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center",
+                justifyContent: "center", gap: "0.375rem",
+              }}>
+                Start Triage <RiArrowRightLine size={15} />
+              </button>
+            </Link>
           </div>
-          <Link href="/login">
-            <button style={{
-              background: "#1A56DB", color: "#fff", border: "none", borderRadius: 9999,
-              padding: "0.5rem 1.375rem", fontSize: "0.875rem", fontWeight: 600,
-              cursor: "pointer", display: "flex", alignItems: "center", gap: "0.375rem",
-            }}>
-              Start Triage <RiArrowRightLine size={15} />
-            </button>
-          </Link>
-        </div>
+        )}
       </nav>
 
       {/* ── HERO ───────────────────────────────────────────────────────── */}
@@ -245,7 +286,7 @@ export default function Home() {
 
       {/* ── ABOUT SPLIT ────────────────────────────────────────────────── */}
       <section id="about" style={{ padding: "6rem 2rem", background: "#fff" }}>
-        <div style={{ maxWidth: 1080, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4rem", alignItems: "center" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }} className="grid-about">
           <div style={{ borderRadius: "1.25rem", overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.12)", aspectRatio: "4/3" }}>
             <img src={ABOUT_IMG} alt="Malaysian hospital" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
           </div>
@@ -313,7 +354,7 @@ export default function Home() {
 
       {/* ── COVERAGE ───────────────────────────────────────────────────── */}
       <section id="coverage" style={{ background: "#1A56DB", padding: "5rem 2rem" }}>
-        <div style={{ maxWidth: 1080, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3rem", alignItems: "center" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }} className="grid-coverage">
           <div>
             <div style={{ display: "inline-block", background: "rgba(255,255,255,0.2)", color: "#fff", padding: "0.3rem 1rem", borderRadius: 9999, fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: "1.25rem" }}>
               Coverage

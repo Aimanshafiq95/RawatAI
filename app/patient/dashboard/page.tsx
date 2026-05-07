@@ -47,7 +47,7 @@ export default function PatientDashboard() {
       <PatientNav user={user} />
 
       {/* Main content */}
-      <main style={{ marginLeft: 220, flex: 1, padding: "2rem 2.5rem", maxWidth: "calc(100vw - 220px)" }}>
+      <main className="page-main">
 
         {/* Header */}
         <div style={{ marginBottom: "2rem" }}>
@@ -60,7 +60,7 @@ export default function PatientDashboard() {
         </div>
 
         {/* Top stat cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", marginBottom: "1.75rem" }}>
+        <div className="grid-stat-4">
           <StatCard
             icon={<RiCalendarCheckLine size={20} color="#1A56DB" />}
             label="Last Visit"
@@ -88,7 +88,7 @@ export default function PatientDashboard() {
         </div>
 
         {/* Main grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.5rem", alignItems: "start" }}>
+        <div className="grid-main-sidebar">
 
           {/* Left column */}
           <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
@@ -97,6 +97,7 @@ export default function PatientDashboard() {
             <div style={{
               background: "#1A56DB", borderRadius: "0.75rem", padding: "1.5rem 2rem",
               display: "flex", justifyContent: "space-between", alignItems: "center",
+              flexWrap: "wrap", gap: "1rem",
             }}>
               <div>
                 <div className="font-heading" style={{ fontSize: "1.15rem", color: "#fff", marginBottom: "0.4rem" }}>

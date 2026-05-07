@@ -1,5 +1,15 @@
 // Shared in-memory store anchored to globalThis so it survives Next.js HMR hot reloads
 
+export type CheckinStatus = "PENDING" | "ARRIVED" | "IN_TREATMENT" | "DISCHARGED";
+export type ReviewStatus = "PENDING_REVIEW" | "REVIEWED" | "AUTO_APPROVED";
+
+export interface Differential {
+  condition: string;
+  department: string;
+  priority: "P1" | "P2" | "P3";
+  confidence: number; // 0-100, three entries sum to 100
+}
+
 export interface CaseRecord {
   session_id: string;
   patient_name: string;
@@ -18,6 +28,35 @@ export interface CaseRecord {
   override_priority?: "P1" | "P2" | "P3";
   override_notes?: string;
   overridden_at?: number;
+  // Human-in-the-loop review
+  review_status?: ReviewStatus;
+  reviewed_by?: string;
+  reviewed_at?: number;
+  review_notes?: string;
+  is_emergency?: boolean; // P1 — bypasses review, triggers call-999 + hospital pre-notify
+  // Front desk check-in tracking
+  checkin_status?: CheckinStatus;
+  checkin_updated_at?: number;
+  checkin_updated_by?: string;
+  // AI differential diagnoses (Top-3 with confidence)
+  differentials?: Differential[];
+}
+
+export interface AuditEntry {
+  id: string;
+  case_session_id: string;
+  patient_name: string;
+  doctor_name: string;
+  doctor_staff_id: string;
+  action: "CONFIRMED" | "OVERRIDDEN";
+  ai_priority: "P1" | "P2" | "P3";
+  new_priority?: "P1" | "P2" | "P3";
+  ai_department?: string;
+  new_department?: string;
+  ai_doctor?: string;
+  new_doctor?: string;
+  notes?: string;
+  timestamp: number;
 }
 
 export interface SurgeEvent {
@@ -37,11 +76,14 @@ declare global {
   var __rawat_surge_events: SurgeEvent[] | undefined;
   // eslint-disable-next-line no-var
   var __rawat_demo_seeded: boolean | undefined;
+  // eslint-disable-next-line no-var
+  var __rawat_audit_log: AuditEntry[] | undefined;
 }
 
 globalThis.__rawat_cases        ??= new Map<string, CaseRecord>();
 globalThis.__rawat_capacity     ??= new Map<string, number>();
 globalThis.__rawat_surge_events ??= [];
+globalThis.__rawat_audit_log    ??= [];
 
 // Pre-seed realistic demo overlay so surge detection fires reliably during presentation.
 // Hospital Kuala Lumpur (util 71%) + 20 → 91% SURGE
@@ -57,3 +99,4 @@ if (!globalThis.__rawat_demo_seeded) {
 export const cases           = globalThis.__rawat_cases;
 export const capacityOverlay = globalThis.__rawat_capacity;
 export const surgeEvents     = globalThis.__rawat_surge_events;
+export const auditLog        = globalThis.__rawat_audit_log;

@@ -30,13 +30,13 @@ export default function HistoryPage() {
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F9FAFB" }}>
       <PatientNav user={user} />
-      <main style={{ marginLeft: 220, flex: 1, padding: "2rem 2.5rem" }}>
+      <main className="page-main">
         <div style={{ marginBottom: "1.75rem" }}>
           <h1 style={{ fontSize: "1.5rem", fontWeight: 700, color: "#111827", marginBottom: "0.25rem" }}>Medical History</h1>
           <p style={{ fontSize: "0.875rem", color: "#6B7280" }}>{MOCK_HISTORY.length} records on file</p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 380px" : "1fr", gap: "1.5rem", alignItems: "start" }}>
+        <div className={selected ? "grid-main-sidebar" : ""} style={{ display: "grid", gap: "1.5rem", alignItems: "start" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
             {MOCK_HISTORY.map((visit) => {
               const badge = PRIORITY_BADGE[visit.priority];
