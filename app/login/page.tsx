@@ -32,7 +32,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: `linear-gradient(to bottom, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.38) 100%), url('https://1.bp.blogspot.com/-vbkZuQ50oq8/YEWFUMLAlhI/AAAAAAAA9Pg/a6JoelXoGM820d-rURkog9Xiu_f5yaqswCLcBGAsYHQ/s2048/PHKL%2BExterior%2BDay_01.jpg') center/cover no-repeat`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
+    <div style={{ minHeight: "100vh", background: `linear-gradient(to bottom, rgba(0,0,0,0.52) 0%, rgba(0,0,0,0.38) 100%), url('https://1.bp.blogspot.com/-vbkZuQ50oq8/YEWFUMLAlhI/AAAAAAAA9Pg/a6JoelXoGM820d-rURkog9Xiu_f5yaqswCLcBGAsYHQ/s2048/PHKL%2BExterior%2BDay_01.jpg') center/cover no-repeat`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "1.25rem" }}>
       <Link href="/">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.625rem", marginBottom: "0.5rem" }}>
           <img src="/logo.png" alt="Malaysia" style={{ height: 40, width: "auto", objectFit: "contain" }} />
@@ -45,7 +45,7 @@ export default function LoginPage() {
         AI-powered public healthcare triage
       </p>
 
-      <div className="card" style={{ width: "100%", maxWidth: 420, background: "rgba(255,255,255,0.97)", backdropFilter: "blur(16px)", boxShadow: "0 8px 40px rgba(0,0,0,0.25)" }}>
+      <div className="card" style={{ width: "100%", maxWidth: 420, background: "rgba(255,255,255,0.97)", backdropFilter: "blur(16px)", boxShadow: "0 8px 40px rgba(0,0,0,0.25)", padding: "1.5rem" }}>
         <h2 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.25rem" }}>Patient Login</h2>
         <p style={{ fontSize: "0.8rem", color: "#6B7280", marginBottom: "1.5rem" }}>
           Access your health records and AI triage

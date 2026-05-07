@@ -41,14 +41,20 @@ JSON format (ONLY this, no extra text):
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { symptoms, history, vision_findings, session_id, lang = "en" } = body;
+    const { symptoms, history, session_id, lang = "en", answers = [], questions = [] } = body;
 
     const contextParts: string[] = [`Patient symptoms: ${symptoms}`];
-    if (vision_findings)                  contextParts.push(`Image analysis: ${vision_findings}`);
-    if (history?.allergies?.length)       contextParts.push(`Allergies: ${history.allergies.join(", ")}`);
+    if (history?.allergies?.length)          contextParts.push(`Allergies: ${history.allergies.join(", ")}`);
     if (history?.chronic_conditions?.length) contextParts.push(`Chronic conditions: ${history.chronic_conditions.join(", ")}`);
     if (history?.current_medications?.length) contextParts.push(`Medications: ${history.current_medications.join(", ")}`);
-    if (history?.recent_diagnoses?.length) contextParts.push(`Recent diagnoses: ${history.recent_diagnoses.join(", ")}`);
+    if (history?.recent_diagnoses?.length)   contextParts.push(`Recent diagnoses: ${history.recent_diagnoses.join(", ")}`);
+    if (answers.length > 0) {
+      contextParts.push("Follow-up Q&A:");
+      answers.forEach((ans: string, i: number) => {
+        const q = questions[i]?.text ?? `Question ${i + 1}`;
+        contextParts.push(`  - ${q} → ${ans}`);
+      });
+    }
 
     const response = await groq.chat.completions.create({
       model: "llama-3.1-8b-instant",
