@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// Lazy-init so Next.js build-time route collection doesn't require the API key.
+let _groq: Groq | undefined;
+function getGroq() {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return _groq;
+}
 
 function buildSystem(lang: "en" | "bm") {
   const isBM = lang === "bm";
@@ -147,7 +152,7 @@ export async function POST(req: NextRequest) {
       contextParts.push(`Pain score (NRS 0–10): ${pain_score}/10${loc}`);
     }
 
-    const response = await groq.chat.completions.create({
+    const response = await getGroq().chat.completions.create({
       model: "llama-3.1-8b-instant",
       messages: [
         { role: "system", content: buildSystem(lang as "en" | "bm") },

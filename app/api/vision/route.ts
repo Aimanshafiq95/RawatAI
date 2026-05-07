@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+// Lazy-init so Next.js build-time route collection doesn't require the API key.
+let _groq: Groq | undefined;
+function getGroq() {
+  if (!_groq) _groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  return _groq;
+}
 
 export async function POST(req: NextRequest) {
   try {
     const { image_base64, symptoms } = await req.json();
     if (!image_base64) return NextResponse.json({ findings: null });
 
-    const response = await groq.chat.completions.create({
+    const response = await getGroq().chat.completions.create({
       model: "llama-3.2-11b-vision-preview",
       messages: [
         {
