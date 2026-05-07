@@ -1,13 +1,15 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   RiDashboardLine, RiAlertLine, RiHospitalLine,
   RiUserHeartLine, RiRefreshLine, RiRadarLine,
   RiCheckLine, RiArrowRightUpLine, RiTimeLine,
-  RiGroupLine, RiShieldCrossLine, RiEditLine, RiCloseLine,
-  RiSaveLine, RiErrorWarningLine,
+  RiGroupLine, RiShieldCrossLine, RiLogoutBoxLine,
+  RiEyeLine,
 } from "react-icons/ri";
+import type { DemoStaff } from "@/lib/demo-users";
 
 interface CaseRecord {
   session_id: string;
@@ -64,13 +66,6 @@ const CAPACITY_STYLE: Record<string, { color: string; bg: string; bar: string }>
   CRITICAL: { color: "#E02424", bg: "#FEE2E2", bar: "#E02424" },
 };
 
-const DEPARTMENTS = [
-  "Emergency Medicine", "Internal Medicine", "Cardiology", "Neurology",
-  "Orthopaedics", "Paediatrics", "Obstetrics & Gynaecology", "Psychiatry",
-  "General Surgery", "Dermatology", "Ophthalmology", "ENT",
-  "Respiratory Medicine", "Gastroenterology", "Nephrology", "Oncology",
-];
-
 function timeAgo(ts: number): string {
   const diff = Math.floor((Date.now() - ts) / 1000);
   if (diff < 60) return `${diff}s ago`;
@@ -78,174 +73,52 @@ function timeAgo(ts: number): string {
   return `${Math.floor(diff / 3600)}h ago`;
 }
 
-function StatCard({ icon: Icon, label, value, color, bg }: { icon: any; label: string; value: number; color: string; bg: string }) {
+function StatCard({ icon: Icon, label, value, color, bg }: {
+  icon: React.ComponentType<{ size?: number; color?: string }>;
+  label: string; value: number; color: string; bg: string;
+}) {
   return (
-    <div className="card" style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1.25rem 1.5rem" }}>
-      <div style={{ width: 48, height: 48, borderRadius: "0.625rem", background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon size={22} color={color} />
+    <div className="card" style={{ padding: "1.25rem" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "0.625rem" }}>
+        <div style={{ width: 32, height: 32, borderRadius: "0.5rem", background: bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <Icon size={16} color={color} />
+        </div>
+        <div style={{ fontSize: "0.7rem", fontWeight: 700, color: "#6B7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
       </div>
-      <div>
-        <div style={{ fontSize: "1.75rem", fontWeight: 800, color: "#111827", lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: "0.75rem", color: "#6B7280", fontWeight: 600, marginTop: "0.2rem" }}>{label}</div>
-      </div>
+      <div style={{ fontSize: "1.75rem", fontWeight: 700, color: "#111827", lineHeight: 1 }}>{value}</div>
     </div>
   );
 }
 
-// ── Override Modal ─────────────────────────────────────────────────────────────
-function OverrideModal({ c, onClose, onSaved }: { c: CaseRecord; onClose: () => void; onSaved: () => void }) {
-  const [department, setDepartment] = useState(c.override_department ?? c.doctor_specialty ?? "");
-  const [doctor,     setDoctor]     = useState(c.override_doctor ?? c.doctor_name ?? "");
-  const [priority,   setPriority]   = useState<"P1"|"P2"|"P3">(c.override_priority ?? c.priority);
-  const [notes,      setNotes]      = useState(c.override_notes ?? "");
-  const [saving,     setSaving]     = useState(false);
-  const [saved,      setSaved]      = useState(false);
-
-  async function handleSave() {
-    setSaving(true);
-    await fetch(`/api/admin/cases/${c.session_id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        override_department: department,
-        override_doctor:     doctor,
-        override_priority:   priority,
-        override_notes:      notes,
-      }),
-    });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => { onSaved(); onClose(); }, 800);
-  }
-
-  const aiPriority  = PRIORITY_STYLE[c.priority];
-  const newPriority = PRIORITY_STYLE[priority];
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
-      <div style={{ background: "#fff", borderRadius: "0.875rem", width: "100%", maxWidth: 560, boxShadow: "0 20px 60px rgba(0,0,0,0.2)", overflow: "hidden" }}>
-
-        {/* Modal header */}
-        <div style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <RiEditLine size={18} color="#1A56DB" />
-              <span style={{ fontWeight: 700, fontSize: "1rem", color: "#111827" }}>Doctor Override</span>
-            </div>
-            <div style={{ fontSize: "0.78rem", color: "#6B7280", marginTop: "0.2rem" }}>Patient: {c.patient_name}</div>
-          </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "#6B7280" }}>
-            <RiCloseLine size={22} />
-          </button>
-        </div>
-
-        <div style={{ padding: "1.25rem 1.5rem", display: "flex", flexDirection: "column", gap: "1.1rem" }}>
-
-          {/* AI vs Override comparison banner */}
-          <div style={{ background: "#F9FAFB", borderRadius: "0.625rem", padding: "0.875rem 1rem", display: "flex", gap: "1.5rem" }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.35rem" }}>AI Assessment</div>
-              <span style={{ background: aiPriority.bg, color: aiPriority.color, padding: "0.2rem 0.6rem", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 700 }}>{aiPriority.label}</span>
-              <div style={{ fontSize: "0.78rem", color: "#374151", marginTop: "0.375rem" }}>{c.doctor_specialty} — {c.doctor_name}</div>
-              <div style={{ fontSize: "0.75rem", color: "#6B7280", marginTop: "0.2rem", lineHeight: 1.5 }}>{c.summary}</div>
-            </div>
-            <div style={{ width: 1, background: "#E5E7EB", flexShrink: 0 }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "#1A56DB", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "0.35rem" }}>Doctor Override</div>
-              <span style={{ background: newPriority.bg, color: newPriority.color, padding: "0.2rem 0.6rem", borderRadius: 9999, fontSize: "0.72rem", fontWeight: 700 }}>{newPriority.label}</span>
-              <div style={{ fontSize: "0.78rem", color: "#374151", marginTop: "0.375rem" }}>{department || "—"} — {doctor || "—"}</div>
-            </div>
-          </div>
-
-          {/* Priority override */}
-          <div>
-            <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#374151", display: "block", marginBottom: "0.4rem" }}>Override Priority</label>
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              {(["P1", "P2", "P3"] as const).map(p => {
-                const ps = PRIORITY_STYLE[p];
-                return (
-                  <button key={p} onClick={() => setPriority(p)}
-                    style={{ flex: 1, padding: "0.5rem", borderRadius: "0.5rem", border: `2px solid ${priority === p ? ps.color : "#E5E7EB"}`, background: priority === p ? ps.bg : "#fff", color: priority === p ? ps.color : "#6B7280", fontWeight: 700, fontSize: "0.8rem", cursor: "pointer", transition: "all 0.15s" }}>
-                    {p}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Department */}
-          <div>
-            <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#374151", display: "block", marginBottom: "0.4rem" }}>Correct Department</label>
-            <select value={department} onChange={e => setDepartment(e.target.value)}>
-              <option value="">— Select department —</option>
-              {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
-          </div>
-
-          {/* Doctor */}
-          <div>
-            <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#374151", display: "block", marginBottom: "0.4rem" }}>Assign Doctor</label>
-            <input type="text" value={doctor} onChange={e => setDoctor(e.target.value)} placeholder="e.g. Dr. Ahmad Farouk" />
-          </div>
-
-          {/* Notes */}
-          <div>
-            <label style={{ fontSize: "0.75rem", fontWeight: 700, color: "#374151", display: "block", marginBottom: "0.4rem" }}>Override Notes</label>
-            <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)}
-              placeholder="Reason for override — e.g. Patient history suggests cardiac involvement, reassigning to Cardiology." style={{ resize: "none" }} />
-          </div>
-
-          {/* Responsible AI notice */}
-          <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", background: "#FFF7ED", border: "1px solid #FED7AA", borderRadius: "0.5rem", padding: "0.625rem 0.875rem" }}>
-            <RiErrorWarningLine size={16} color="#D97706" style={{ flexShrink: 0, marginTop: 1 }} />
-            <p style={{ fontSize: "0.72rem", color: "#92400E", lineHeight: 1.5, margin: 0 }}>
-              This override will be logged with a timestamp and your identity for audit purposes. The AI assessment is preserved alongside your correction.
-            </p>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: "1rem 1.5rem", borderTop: "1px solid #F3F4F6", display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-          <button onClick={onClose} className="btn-outline" style={{ padding: "0.5rem 1.25rem", fontSize: "0.85rem" }}>Cancel</button>
-          <button onClick={handleSave} disabled={saving || saved}
-            className="btn-primary"
-            style={{ padding: "0.5rem 1.25rem", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "0.5rem", opacity: saving ? 0.7 : 1 }}>
-            {saved
-              ? <><RiCheckLine size={15} /> Saved!</>
-              : saving
-              ? "Saving…"
-              : <><RiSaveLine size={15} /> Save Override</>}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Main page ──────────────────────────────────────────────────────────────────
 export default function AdminDashboard() {
+  const router = useRouter();
+  const [admin, setAdmin]             = useState<DemoStaff | null>(null);
   const [data, setData]               = useState<AdminData | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [refreshing, setRefreshing]   = useState(false);
-  const [newCaseIds, setNewCaseIds]   = useState<Set<string>>(new Set());
-  const [overrideCase, setOverrideCase] = useState<CaseRecord | null>(null);
+
+  // Auth gate — must be signed in AND have ADMIN role
+  useEffect(() => {
+    const raw = localStorage.getItem("demo_staff");
+    if (!raw) { router.replace("/staff/login"); return; }
+    try {
+      const s = JSON.parse(raw) as DemoStaff;
+      if (s.role !== "ADMIN") { router.replace("/staff/login"); return; }
+      setAdmin(s);
+    } catch { router.replace("/staff/login"); }
+  }, [router]);
+
+  function signOut() {
+    localStorage.removeItem("demo_staff");
+    router.replace("/staff/login");
+  }
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
     try {
       const res  = await fetch("/api/admin/cases");
       const json = await res.json() as AdminData;
-      setData(prev => {
-        if (prev) {
-          const prevIds  = new Set(prev.cases.map(c => c.session_id));
-          const incoming = new Set(json.cases.filter(c => !prevIds.has(c.session_id)).map(c => c.session_id));
-          if (incoming.size > 0) {
-            setNewCaseIds(incoming);
-            setTimeout(() => setNewCaseIds(new Set()), 3000);
-          }
-        }
-        return json;
-      });
+      setData(json);
       setLastRefresh(new Date());
     } finally {
       if (!silent) setRefreshing(false);
@@ -253,10 +126,13 @@ export default function AdminDashboard() {
   }, []);
 
   useEffect(() => {
+    if (!admin) return;
     fetchData();
     const interval = setInterval(() => fetchData(true), 5000);
     return () => clearInterval(interval);
-  }, [fetchData]);
+  }, [fetchData, admin]);
+
+  if (!admin) return null;
 
   const stats = data?.stats ?? { total: 0, p1: 0, p2: 0, p3: 0, surges: 0 };
 
@@ -283,10 +159,26 @@ export default function AdminDashboard() {
             </div>
           ))}
         </nav>
-        <div style={{ padding: "1rem 0.75rem", borderTop: "1px solid #F3F4F6" }}>
-          <Link href="/login" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: "0.5rem", fontSize: "0.8rem", color: "#6B7280", fontWeight: 500 }}>
-            ← Patient Portal
-          </Link>
+        <div style={{ padding: "0.875rem 1rem", borderTop: "1px solid #F3F4F6", display: "flex", flexDirection: "column", gap: "0.625rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <span className="font-heading" style={{ fontSize: "0.85rem", color: "#6B7280" }}>{admin.name[0]}</span>
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontSize: "0.78rem", fontWeight: 700, color: "#111827", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{admin.name}</div>
+              <div style={{ fontSize: "0.66rem", color: "#6B7280", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{admin.staffId}</div>
+            </div>
+          </div>
+          <button onClick={signOut} style={{
+            display: "flex", alignItems: "center", gap: "0.5rem",
+            width: "100%", padding: "0.5rem 0.625rem", borderRadius: "0.5rem",
+            background: "none", border: "none", cursor: "pointer",
+            color: "#E02424", fontWeight: 500, fontSize: "0.8rem",
+            fontFamily: "Montserrat, sans-serif",
+          }}>
+            <RiLogoutBoxLine size={16} />
+            Sign Out
+          </button>
         </div>
       </aside>
 
@@ -301,6 +193,10 @@ export default function AdminDashboard() {
               <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "#F0FDF4", border: "1px solid #86EFAC", borderRadius: 9999, padding: "0.2rem 0.625rem" }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#059669", animation: "pulse 1.5s ease-in-out infinite", display: "inline-block" }} />
                 <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "#059669" }}>LIVE</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", background: "#F3F4F6", border: "1px solid #E5E7EB", borderRadius: 9999, padding: "0.2rem 0.625rem" }}>
+                <RiEyeLine size={11} color="#6B7280" />
+                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "#6B7280", letterSpacing: "0.05em" }}>READ-ONLY</span>
               </div>
             </div>
             <p style={{ fontSize: "0.875rem", color: "#6B7280", marginTop: "0.25rem" }}>
@@ -326,7 +222,7 @@ export default function AdminDashboard() {
         {/* Two-column */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.5rem", alignItems: "start" }}>
 
-          {/* Case feed */}
+          {/* Case feed — read-only */}
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ fontSize: "0.9rem", fontWeight: 700, color: "#111827" }}>Live Case Feed</h2>
@@ -346,7 +242,7 @@ export default function AdminDashboard() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "#F9FAFB" }}>
-                      {["Priority", "Patient", "Department / Doctor", "Facility", "Time", "Action"].map(h => (
+                      {["Priority", "Patient", "Department / Doctor", "Facility", "Time"].map(h => (
                         <th key={h} style={{ padding: "0.625rem 1rem", textAlign: "left", fontSize: "0.68rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #F3F4F6", whiteSpace: "nowrap" }}>{h}</th>
                       ))}
                     </tr>
@@ -356,12 +252,11 @@ export default function AdminDashboard() {
                       const effectivePriority = c.override_priority ?? c.priority;
                       const ps     = PRIORITY_STYLE[effectivePriority];
                       const aiPs   = PRIORITY_STYLE[c.priority];
-                      const isNew  = newCaseIds.has(c.session_id);
                       const dept   = c.override_department ?? c.doctor_specialty;
                       const doc    = c.override_doctor ?? c.doctor_name;
 
                       return (
-                        <tr key={c.session_id} style={{ borderBottom: "1px solid #F9FAFB", background: isNew ? "#F0FDF4" : "transparent", transition: "background 1s" }}>
+                        <tr key={c.session_id} style={{ borderBottom: "1px solid #F9FAFB" }}>
                           <td style={{ padding: "0.75rem 1rem" }}>
                             <span style={{ display: "inline-block", background: ps.bg, color: ps.color, padding: "0.2rem 0.625rem", borderRadius: 9999, fontSize: "0.7rem", fontWeight: 700 }}>{ps.label}</span>
                             {c.overridden && c.override_priority && c.override_priority !== c.priority && (
@@ -372,9 +267,6 @@ export default function AdminDashboard() {
                           </td>
                           <td style={{ padding: "0.75rem 1rem", fontWeight: 600, fontSize: "0.85rem", color: "#111827", whiteSpace: "nowrap" }}>
                             {c.patient_name}
-                            {isNew && (
-                              <span style={{ marginLeft: "0.375rem", fontSize: "0.65rem", background: "#D1FAE5", color: "#059669", padding: "0.1rem 0.375rem", borderRadius: 9999, fontWeight: 700 }}>NEW</span>
-                            )}
                           </td>
                           <td style={{ padding: "0.75rem 1rem", fontSize: "0.8rem", color: "#374151" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
@@ -395,13 +287,6 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td style={{ padding: "0.75rem 1rem", fontSize: "0.75rem", color: "#9CA3AF", whiteSpace: "nowrap" }}>{timeAgo(c.created_at)}</td>
-                          <td style={{ padding: "0.75rem 1rem" }}>
-                            <button onClick={() => setOverrideCase(c)}
-                              style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.35rem 0.75rem", borderRadius: "0.375rem", border: `1.5px solid ${c.overridden ? "#FCD34D" : "#E5E7EB"}`, background: c.overridden ? "#FEF9C3" : "#fff", color: c.overridden ? "#92400E" : "#374151", fontWeight: 600, fontSize: "0.72rem", cursor: "pointer", whiteSpace: "nowrap" }}>
-                              <RiEditLine size={12} />
-                              {c.overridden ? "Edit" : "Override"}
-                            </button>
-                          </td>
                         </tr>
                       );
                     })}
@@ -485,15 +370,6 @@ export default function AdminDashboard() {
           </div>
         </div>
       </main>
-
-      {/* Override modal */}
-      {overrideCase && (
-        <OverrideModal
-          c={overrideCase}
-          onClose={() => setOverrideCase(null)}
-          onSaved={() => fetchData()}
-        />
-      )}
 
       <style>{`
         @keyframes spin  { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }

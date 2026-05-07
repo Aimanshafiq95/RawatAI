@@ -9,17 +9,29 @@ export async function POST(req: NextRequest) {
   const payload = await req.json();
 
   if (payload.session_id) {
+    const priority = payload.priority ?? "P3";
+    // P1 → emergency: bypass review, patient sees Call-999 UI
+    // P2 → human-in-the-loop: pause for doctor review before patient sees final
+    // P3 → routine: auto-approved
+    const isEmergency  = priority === "P1";
+    const reviewStatus = priority === "P2" ? "PENDING_REVIEW" : "AUTO_APPROVED";
+
     const record: CaseRecord = {
-      session_id:       payload.session_id,
-      patient_name:     payload.patient_name ?? "Anonymous",
-      priority:         payload.priority ?? "P3",
-      summary:          payload.summary ?? "",
-      symptoms:         payload.symptoms ?? "",
-      facility_id:      payload.facility_id ?? "",
-      facility_name:    payload.facility_name ?? "",
-      doctor_name:      payload.doctor_name ?? "",
-      doctor_specialty: payload.doctor_specialty ?? "",
-      created_at:       Date.now(),
+      session_id:         payload.session_id,
+      patient_name:       payload.patient_name ?? "Anonymous",
+      priority,
+      summary:            payload.summary ?? "",
+      symptoms:           payload.symptoms ?? "",
+      facility_id:        payload.facility_id ?? "",
+      facility_name:      payload.facility_name ?? "",
+      doctor_name:        payload.doctor_name ?? "",
+      doctor_specialty:   payload.doctor_specialty ?? "",
+      created_at:         Date.now(),
+      checkin_status:     "PENDING",
+      checkin_updated_at: Date.now(),
+      review_status:      reviewStatus,
+      is_emergency:       isEmergency,
+      differentials:      Array.isArray(payload.differentials) ? payload.differentials : undefined,
     };
     cases.set(payload.session_id, record);
 
