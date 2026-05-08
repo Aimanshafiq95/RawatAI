@@ -5,10 +5,26 @@ import {
   RiStethoscopeLine, RiAlertLine, RiTimeLine, RiCheckLine,
   RiUserHeartLine, RiHospitalLine, RiRefreshLine,
   RiEditLine, RiLogoutBoxLine, RiShieldUserLine, RiUserSearchLine,
+  RiAlarmWarningLine, RiFireLine,
 } from "react-icons/ri";
 import OverrideModal from "@/components/OverrideModal";
 import type { DemoStaff } from "@/lib/demo-users";
 import type { CaseRecord } from "@/lib/session-store";
+import { REVIEW_SLA } from "@/lib/session-store";
+
+// Compute review urgency from the time the case was created.
+// Tight 5min/10min SLA — demo-friendly + clinically defensible for P2.
+function reviewUrgency(createdAt: number, status?: string):
+  { tier: "NORMAL" | "ESCALATED" | "CRITICAL"; mins: number; label: string; color: string; bg: string } {
+  const mins = Math.floor((Date.now() - createdAt) / 60000);
+  if (mins >= REVIEW_SLA.CRITICAL_AFTER_MIN) {
+    return { tier: "CRITICAL",  mins, label: `CRITICAL · ${mins}m`,  color: "#FFFFFF", bg: "#E02424" };
+  }
+  if (mins >= REVIEW_SLA.ESCALATED_AFTER_MIN) {
+    return { tier: "ESCALATED", mins, label: `ESCALATED · ${mins}m`, color: "#92400E", bg: "#FED7AA" };
+  }
+  return   { tier: "NORMAL",    mins, label: `${mins}m wait`,        color: "#1A56DB", bg: "#DBEAFE" };
+}
 
 interface AdminData {
   cases: CaseRecord[];
@@ -34,7 +50,7 @@ interface AuditEntry {
   timestamp: number;
 }
 
-type View = "queue" | "audit";
+type View = "queue" | "emergency" | "audit";
 
 const PRIORITY_STYLE: Record<string, { color: string; bg: string; label: string }> = {
   P1: { color: "#E02424", bg: "#FEE2E2", label: "P1 CRITICAL" },
@@ -137,15 +153,30 @@ export default function DoctorDashboard() {
   if (!doctor) return null;
 
   const stats = data?.stats ?? { total: 0, p1: 0, p2: 0, p3: 0, surges: 0 };
-  const overriddenCount = data?.cases.filter(c => c.overridden).length ?? 0;
-  const pendingCount    = data?.cases.filter(c => c.review_status === "PENDING_REVIEW").length ?? 0;
+  const overriddenCount  = data?.cases.filter(c => c.overridden).length ?? 0;
+  const pendingCount     = data?.cases.filter(c => c.review_status === "PENDING_REVIEW").length ?? 0;
+  const emergencyCount   = data?.cases.filter(c => c.review_status === "EMERGENCY_FOLLOWUP").length ?? 0;
 
-  const filteredCases = (data?.cases ?? []).filter(c => {
-    if (filter === "PENDING")    return c.review_status === "PENDING_REVIEW";
-    if (filter === "ALL")        return true;
-    if (filter === "OVERRIDDEN") return c.overridden;
-    return (c.override_priority ?? c.priority) === filter;
-  });
+  // P2 review queue — sorted longest-wait first so escalated cases bubble to the top.
+  const filteredCases = (data?.cases ?? [])
+    .filter(c => {
+      if (filter === "PENDING")    return c.review_status === "PENDING_REVIEW";
+      if (filter === "ALL")        return true;
+      if (filter === "OVERRIDDEN") return c.overridden;
+      return (c.override_priority ?? c.priority) === filter;
+    })
+    .sort((a, b) => {
+      const aPending = a.review_status === "PENDING_REVIEW";
+      const bPending = b.review_status === "PENDING_REVIEW";
+      if (aPending && !bPending) return -1;
+      if (!aPending && bPending) return 1;
+      return a.created_at - b.created_at; // oldest first → longest wait at top
+    });
+
+  // P1 emergency follow-up queue — separate tab, optional review.
+  const emergencyCases = (data?.cases ?? [])
+    .filter(c => c.review_status === "EMERGENCY_FOLLOWUP")
+    .sort((a, b) => a.created_at - b.created_at);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F9FAFB" }}>
@@ -161,8 +192,9 @@ export default function DoctorDashboard() {
         </div>
         <nav style={{ flex: 1, padding: "1rem 0.75rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           {[
-            { key: "queue" as View, icon: RiStethoscopeLine, label: "Review Queue", count: pendingCount },
-            { key: "audit" as View, icon: RiShieldUserLine,  label: "Audit Log",    count: audit.length },
+            { key: "queue"     as View, icon: RiStethoscopeLine, label: "Review Queue",       count: pendingCount },
+            { key: "emergency" as View, icon: RiAlarmWarningLine,   label: "Emergency Follow-up", count: emergencyCount },
+            { key: "audit"     as View, icon: RiShieldUserLine,  label: "Audit Log",          count: audit.length },
           ].map(({ key, icon: Icon, label, count }) => {
             const active = view === key;
             return (
@@ -299,12 +331,15 @@ export default function DoctorDashboard() {
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem", flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#111827" }}>{c.patient_name}</span>
                         <span style={{ fontSize: "0.72rem", color: "#9CA3AF" }}>· {timeAgo(c.created_at)}</span>
-                        {c.review_status === "PENDING_REVIEW" && (
-                          <span style={{ fontSize: "0.62rem", background: "#DBEAFE", color: "#1A56DB", padding: "0.1rem 0.45rem", borderRadius: 9999, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
-                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#1A56DB", animation: "pulse 1s ease-in-out infinite" }} />
-                            AWAITING REVIEW
-                          </span>
-                        )}
+                        {c.review_status === "PENDING_REVIEW" && (() => {
+                          const u = reviewUrgency(c.created_at, c.review_status);
+                          return (
+                            <span style={{ fontSize: "0.62rem", background: u.bg, color: u.color, padding: "0.1rem 0.45rem", borderRadius: 9999, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                              {u.tier === "CRITICAL" ? <RiFireLine size={10} /> : <span style={{ width: 5, height: 5, borderRadius: "50%", background: u.color, animation: "pulse 1s ease-in-out infinite" }} />}
+                              {u.tier === "NORMAL" ? `AWAITING · ${u.mins}m` : u.label}
+                            </span>
+                          );
+                        })()}
                         {c.review_status === "REVIEWED" && !c.overridden && (
                           <span style={{ fontSize: "0.62rem", background: "#D1FAE5", color: "#059669", padding: "0.1rem 0.45rem", borderRadius: 9999, fontWeight: 700 }}>
                             ✓ AI CONFIRMED
@@ -356,6 +391,84 @@ export default function DoctorDashboard() {
           )}
         </div>
           </>
+        ) : view === "emergency" ? (
+          /* ── Emergency Follow-up view (P1 cases — optional review) ── */
+          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#FEF2F2" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.625rem" }}>
+                <RiAlarmWarningLine size={20} color="#E02424" />
+                <div>
+                  <h2 style={{ fontSize: "0.9rem", fontWeight: 700, color: "#111827" }}>Emergency Follow-up · P1 Cases</h2>
+                  <p style={{ fontSize: "0.72rem", color: "#9CA3AF", marginTop: "0.15rem" }}>
+                    Patients already routed to ambulance/ER · review is optional but recommended for oversight + audit
+                  </p>
+                </div>
+              </div>
+              <span style={{ fontSize: "0.75rem", color: "#6B7280" }}>{emergencyCases.length} active</span>
+            </div>
+            {emergencyCases.length === 0 ? (
+              <div style={{ padding: "3rem 1.5rem", textAlign: "center" }}>
+                <RiCheckLine size={36} color="#D1D5DB" style={{ margin: "0 auto 0.75rem" }} />
+                <p style={{ color: "#9CA3AF", fontSize: "0.875rem" }}>No active P1 emergencies.</p>
+              </div>
+            ) : (
+              <div style={{ maxHeight: 720, overflowY: "auto" }}>
+                {emergencyCases.map(c => {
+                  const dept = c.override_department ?? c.doctor_specialty;
+                  const doc  = c.override_doctor     ?? c.doctor_name;
+                  const u    = reviewUrgency(c.created_at, c.review_status);
+                  return (
+                    <div key={c.session_id} style={{ padding: "1.25rem 1.5rem", borderBottom: "1px solid #F9FAFB", display: "flex", gap: "1.25rem", alignItems: "flex-start" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem", flexWrap: "wrap" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "#FEE2E2", color: "#E02424", padding: "0.2rem 0.55rem", borderRadius: 9999, fontSize: "0.7rem", fontWeight: 700 }}>
+                            <RiAlarmWarningLine size={11} /> P1 EMERGENCY
+                          </span>
+                          <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#111827" }}>{c.patient_name}</span>
+                          <span style={{ fontSize: "0.62rem", background: u.bg, color: u.color, padding: "0.1rem 0.45rem", borderRadius: 9999, fontWeight: 700 }}>
+                            ROUTED · {u.mins}m ago
+                          </span>
+                          {c.reviewed_by && (
+                            <span style={{ fontSize: "0.62rem", background: "#D1FAE5", color: "#059669", padding: "0.1rem 0.45rem", borderRadius: 9999, fontWeight: 700 }}>
+                              ✓ FOLLOWED UP by {c.reviewed_by}
+                            </span>
+                          )}
+                          {c.overridden && (
+                            <span style={{ fontSize: "0.62rem", background: "#FEF3C7", color: "#92400E", padding: "0.1rem 0.45rem", borderRadius: 9999, fontWeight: 700 }}>
+                              ✎ OVERRIDDEN
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: "0.82rem", color: "#374151", lineHeight: 1.55, marginBottom: "0.5rem" }}>{c.summary}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem", fontSize: "0.75rem", color: "#6B7280" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                            <RiUserHeartLine size={12} color="#E02424" /> {dept || "—"} · {doc || "—"}
+                          </span>
+                          <span style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                            <RiHospitalLine size={12} color="#1A56DB" /> {c.facility_name || "—"}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ flexShrink: 0, display: "flex", flexDirection: "column", gap: "0.4rem", minWidth: 160 }}>
+                        {!c.reviewed_by && (
+                          <button onClick={() => confirmAI(c)} disabled={confirmingId === c.session_id}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem", padding: "0.5rem 1rem", borderRadius: "0.5rem", border: "1.5px solid #059669", background: "#059669", color: "#fff", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer", whiteSpace: "nowrap", opacity: confirmingId === c.session_id ? 0.6 : 1 }}>
+                            <RiCheckLine size={13} />
+                            {confirmingId === c.session_id ? "Following up…" : "Acknowledge"}
+                          </button>
+                        )}
+                        <button onClick={() => setOverrideCase(c)}
+                          style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.35rem", padding: "0.5rem 1rem", borderRadius: "0.5rem", border: `1.5px solid ${c.overridden ? "#FCD34D" : "#1A56DB"}`, background: c.overridden ? "#FEF9C3" : "#fff", color: c.overridden ? "#92400E" : "#1A56DB", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer", whiteSpace: "nowrap" }}>
+                          <RiEditLine size={13} />
+                          {c.overridden ? "Edit Override" : "Override / Note"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         ) : (
           /* ── Audit Log view ── */
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
