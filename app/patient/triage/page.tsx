@@ -10,6 +10,7 @@ import {
   RiCloseLine, RiPhoneLine, RiArrowLeftLine,
   RiHospitalLine, RiMedicineBottleLine, RiShieldCrossLine,
   RiMicLine, RiMicOffLine, RiTranslate2, RiAlarmWarningFill, RiUserSearchLine,
+  RiUploadCloud2Line, RiImageLine,
   RiVirusFill, RiCalendarCheckLine, RiGroupLine,
   RiArrowRightLine, RiLoaderLine,
 } from "react-icons/ri";
@@ -72,6 +73,13 @@ const SYMPTOM_CHIPS_BM = {
 };
 
 const AGENT_LOGS: Record<string, string[]> = {
+  vision: [
+    "Initialising multimodal vision model (LLaMA 3.2 11B Vision)...",
+    "Decoding base64 image payload...",
+    "Scanning for visible markers: rash, wound, swelling, prescription...",
+    "Extracting clinical features from pixel data...",
+    "Cross-referencing visual findings with reported symptoms...",
+  ],
   triage: [
     "Loading triage model (LLaMA 3.1-8B, temperature=0)...",
     "Tokenising symptom description and follow-up answers...",
@@ -101,9 +109,10 @@ const AGENT_LOGS: Record<string, string[]> = {
 };
 
 const AGENT_STEPS = [
+  { key: "vision",  icon: RiEyeLine,         label: "Vision Agent",     sublabel: "Analysing uploaded photo" },
   { key: "triage",  icon: RiStethoscopeLine, label: "Triage Agent",     sublabel: "Assessing symptoms & history" },
-  { key: "routing", icon: RiRouteLine,        label: "Routing Agent",    sublabel: "Scanning nearby facilities" },
-  { key: "assign",  icon: RiUserHeartLine,    label: "Assignment Agent", sublabel: "Matching specialist" },
+  { key: "routing", icon: RiRouteLine,       label: "Routing Agent",    sublabel: "Scanning nearby facilities" },
+  { key: "assign",  icon: RiUserHeartLine,   label: "Assignment Agent", sublabel: "Matching specialist" },
 ];
 
 declare global { interface Window { SpeechRecognition: any; webkitSpeechRecognition: any; } }
@@ -220,6 +229,11 @@ export default function TriagePage() {
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [freeText, setFreeText]   = useState("");
   const [isListening, setIsListening] = useState(false);
+
+  // Optional photo (drives vision agent)
+  const [photoBase64, setPhotoBase64]     = useState<string | null>(null);
+  const [photoPreview, setPhotoPreview]   = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Questions card
   const [followUpQs, setFollowUpQs]   = useState<FollowUpQuestion[]>([]);
@@ -346,6 +360,23 @@ export default function TriagePage() {
     setSelectedSymptoms((p) => p.includes(s) ? p.filter((x) => x !== s) : [...p, s]);
   }
 
+  // ── Optional photo (drives vision agent) ──────────────────────────────────
+  function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setPhotoPreview(dataUrl);
+      setPhotoBase64(dataUrl.split(",")[1] ?? null);
+    };
+    reader.readAsDataURL(file);
+  }
+  function clearPhoto() {
+    setPhotoBase64(null); setPhotoPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
   // ── Step: Symptoms → Questions ─────────────────────────────────────────────
   async function submitSymptoms() {
     const allSymptoms = [...selectedSymptoms, ...(freeText.trim() ? [freeText.trim()] : [])];
@@ -416,7 +447,31 @@ export default function TriagePage() {
       appendLog("[SYSTEM ] Starting autonomous agent pipeline...");
       appendLog("[SYSTEM ] Session: " + sid);
 
-      // AGENT 1: Triage
+      // AGENT 1: Vision (only when patient uploaded a photo; otherwise mark done immediately)
+      let visionFindings: string | undefined;
+      if (photoBase64) {
+        setAgent("vision", "running");
+        const visionWait = streamLogs("vision");
+        await new Promise((r) => setTimeout(r, visionWait));
+        try {
+          const vRes  = await fetch("/api/vision", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image_base64: photoBase64, symptoms: symptomsText }),
+          });
+          const vData = await vRes.json();
+          visionFindings = vData.findings ?? undefined;
+          appendLog(`[VISION ] Findings: ${(visionFindings ?? "none").slice(0, 90)}`);
+        } catch {
+          appendLog("[VISION ] Analysis failed — continuing without vision context.");
+        }
+        setAgent("vision", "done");
+      } else {
+        appendLog("[VISION ] No photo uploaded — skipping visual analysis.");
+        setAgent("vision", "done");
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      // AGENT 2: Triage
       setAgent("triage", "running");
       await new Promise((r) => setTimeout(r, 200));
       const triageWait = streamLogs("triage");
@@ -433,6 +488,7 @@ export default function TriagePage() {
           questions: followUpQs,
           pain_score: painScore,
           pain_location: painLocation || undefined,
+          vision_findings: visionFindings,
         }),
       });
       if (!tRes.ok) { const e = await tRes.json().catch(() => ({})); throw new Error(e.error ?? `Triage failed (${tRes.status})`); }
@@ -516,6 +572,7 @@ export default function TriagePage() {
     setLocation(null); setLocLabel(""); setSelectedCity(""); setLocMode("dropdown");
     setCompletedCards([]);
     setSessionId(""); setReviewStatus(null); setReviewerInfo(null);
+    setPhotoBase64(null); setPhotoPreview(null);
     logTimers.current.forEach(clearTimeout);
   }
 
@@ -611,7 +668,7 @@ export default function TriagePage() {
                 </div>
 
                 {/* Voice + free text */}
-                <div style={{ display: "flex", gap: "0.625rem", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+                <div style={{ display: "flex", gap: "0.625rem", alignItems: "flex-start", marginBottom: "1rem" }}>
                   <button onClick={toggleVoice}
                     style={{ flexShrink: 0, width: 42, height: 42, borderRadius: "50%", border: "none", cursor: "pointer", background: isListening ? "#FEE2E2" : "#F3F4F6", color: isListening ? "#E02424" : "#6B7280", display: "flex", alignItems: "center", justifyContent: "center", animation: isListening ? "pulse 1s ease-in-out infinite" : "none" }}>
                     {isListening ? <RiMicOffLine size={18} /> : <RiMicLine size={18} />}
@@ -619,6 +676,35 @@ export default function TriagePage() {
                   <textarea rows={2} value={freeText} onChange={(e) => setFreeText(e.target.value)}
                     placeholder={lang === "bm" ? "Atau taip gejala lain di sini…" : "Or type any other symptoms here…"}
                     style={{ flex: 1, resize: "none", fontSize: "0.875rem" }} />
+                </div>
+
+                {/* Optional photo upload — drives Vision Agent */}
+                <div style={{ marginBottom: "1.5rem" }}>
+                  <input ref={fileRef} type="file" accept="image/*" onChange={handlePhoto} style={{ display: "none" }} />
+                  {photoPreview ? (
+                    <div style={{ position: "relative", borderRadius: "0.625rem", overflow: "hidden", border: "1px solid #E5E7EB" }}>
+                      <img src={photoPreview} alt="uploaded" style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block" }} />
+                      <button type="button" onClick={clearPhoto}
+                        style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: "50%", background: "rgba(15,23,42,0.85)", color: "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <RiCloseLine size={16} />
+                      </button>
+                      <div style={{ position: "absolute", bottom: 8, left: 8, display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "rgba(15,23,42,0.85)", color: "#fff", padding: "0.2rem 0.55rem", borderRadius: 9999, fontSize: "0.65rem", fontWeight: 600 }}>
+                        <RiEyeLine size={11} />
+                        {lang === "bm" ? "Vision Agent akan menganalisis" : "Vision Agent will analyse"}
+                      </div>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={() => fileRef.current?.click()}
+                      style={{ width: "100%", padding: "0.875rem", borderRadius: "0.625rem", border: "1.5px dashed #CBD5E1", background: "#F8FAFC", color: "#475569", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontSize: "0.82rem", fontWeight: 500 }}>
+                      <RiUploadCloud2Line size={18} />
+                      <span>
+                        {lang === "bm" ? "Tambah foto" : "Add a photo"}
+                        <span style={{ fontSize: "0.7rem", color: "#94A3B8", fontWeight: 400, marginLeft: "0.4rem" }}>
+                          {lang === "bm" ? "(pilihan — ruam, luka, preskripsi)" : "(optional — rash, wound, prescription)"}
+                        </span>
+                      </span>
+                    </button>
+                  )}
                 </div>
 
                 <button onClick={submitSymptoms}
@@ -882,6 +968,7 @@ export default function TriagePage() {
               <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem", textAlign: "left" }}>
                 {AGENT_STEPS.map((agent) => {
                   const LABELS: Record<string, { en: string; bm: string }> = {
+                    vision:  { en: "Reviewing your photo…",          bm: "Menyemak foto anda…" },
                     triage:  { en: "Checking your symptoms…",        bm: "Memeriksa gejala anda…" },
                     routing: { en: "Finding the nearest hospital…",  bm: "Mencari hospital terdekat…" },
                     assign:  { en: "Matching you with a specialist…", bm: "Mencarikan pakar untuk anda…" },
