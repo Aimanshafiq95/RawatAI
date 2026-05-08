@@ -116,6 +116,31 @@ export const DEMO_USERS = [
     } as DemoSeed,
   },
 
+  // P2 — LOW severity: persistent cough >1 week, mild fever (>2 days). Triages P2 by duration only.
+  // Designed to land at the BOTTOM of the doctor's P2 queue once severity scoring is applied.
+  {
+    id: "patient-demo-p2-c",
+    name: "Pak Ramli",
+    phone: "0155555555",
+    password: "demo123",
+    role: "PATIENT",
+    icNumber: "720430-08-9900",
+    history: {
+      blood_type: "O+",
+      allergies: [],
+      chronic_conditions: [],
+      current_medications: [],
+      recent_diagnoses: [],
+    },
+    seed: {
+      selectedSymptoms: ["Cough", "Fatigue", "Sore Throat"],
+      freeText: "Persistent dry cough for 8 days now. Low-grade fever around 38.6°C on and off. Feeling tired but still functional. No chest pain, no breathing problems.",
+      painScore: 2,
+      painLocation: "",
+      expectedPriority: "P2",
+    } as DemoSeed,
+  },
+
   // P3 — mild cold, no red flags, mild pain
   {
     id: "patient-demo-p3",
