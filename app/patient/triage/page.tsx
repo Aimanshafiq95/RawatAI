@@ -1133,6 +1133,54 @@ export default function TriagePage() {
               </div>
             </div>
 
+            {/* Preliminary AI findings — diagnostic + confidence shown but framed as unconfirmed.
+                Hospital and doctor assignment intentionally withheld until doctor signs off. */}
+            <div className="card" style={{ borderLeft: "4px solid #D97706", padding: "1.25rem 1.5rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.875rem" }}>
+                <span style={{ fontSize: "0.62rem", fontWeight: 700, color: "#92400E", background: "#FEF3C7", padding: "0.15rem 0.5rem", borderRadius: 9999, letterSpacing: "0.05em" }}>
+                  {lang === "bm" ? "PRELIMINARI" : "PRELIMINARY"}
+                </span>
+                <span style={{ fontSize: "0.7rem", color: "#92400E", fontWeight: 600 }}>
+                  {lang === "bm" ? "Belum disahkan oleh doktor" : "Not yet confirmed by a doctor"}
+                </span>
+              </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "0.625rem", marginBottom: "0.875rem", flexWrap: "wrap" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "0.5rem", background: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <RiVirusFill size={18} color="#92400E" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "0.66rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    {lang === "bm" ? "Penyakit Dijangka AI" : "AI's Most Likely Condition"}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+                    <div style={{ fontWeight: 700, fontSize: "1rem", color: "#111827", lineHeight: 1.2 }}>
+                      {result.predicted_disease ?? "—"}
+                    </div>
+                    {result.differentials?.[0]?.confidence !== undefined && (
+                      <span style={{
+                        fontSize: "0.7rem", fontWeight: 700,
+                        color: "#92400E", background: "#FEF3C7",
+                        padding: "0.15rem 0.5rem", borderRadius: 9999,
+                      }}>
+                        {result.differentials[0].confidence}% {lang === "bm" ? "yakin" : "confidence"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {result.differentials && result.differentials.length > 1 && (
+                <DifferentialsPanel diffs={result.differentials} lang={lang} />
+              )}
+
+              <div style={{ marginTop: "0.875rem", padding: "0.5rem 0.75rem", background: "#FFFBEB", border: "1px solid #FED7AA", borderRadius: "0.5rem", fontSize: "0.72rem", color: "#92400E", lineHeight: 1.55 }}>
+                {lang === "bm"
+                  ? "Hospital dan doktor akan ditugaskan setelah doktor mengesahkan penilaian ini."
+                  : "Hospital and assigned doctor will be shown once a doctor confirms this assessment."}
+              </div>
+            </div>
+
             <div className="card" style={{ padding: "1rem 1.25rem", display: "flex", alignItems: "flex-start", gap: "0.625rem" }}>
               <RiShieldCrossLine size={16} color="#1A56DB" style={{ flexShrink: 0, marginTop: 2 }} />
               <div style={{ fontSize: "0.78rem", color: "#374151", lineHeight: 1.6 }}>
