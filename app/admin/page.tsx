@@ -161,13 +161,24 @@ export default function AdminDashboard() {
         </div>
         <nav style={{ flex: 1, padding: "1rem 0.75rem", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
           {[
-            { icon: RiDashboardLine, label: "Live Case Feed",    active: true },
-            { icon: RiRadarLine,     label: "Surge Events",      active: false },
-            { icon: RiHospitalLine,  label: "Facility Capacity", active: false },
-          ].map(({ icon: Icon, label, active }) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.625rem 0.75rem", borderRadius: "0.5rem", background: active ? "#EFF6FF" : "transparent", color: active ? "#1A56DB" : "#374151", fontWeight: active ? 600 : 500, fontSize: "0.875rem", cursor: "pointer" }}>
+            { icon: RiDashboardLine, label: "Live Case Feed",    target: "section-case-feed" },
+            { icon: RiRadarLine,     label: "Surge Events",      target: "section-surge" },
+            { icon: RiHospitalLine,  label: "Facility Capacity", target: "section-capacity" },
+          ].map(({ icon: Icon, label, target }) => (
+            <button key={label}
+              onClick={() => document.getElementById(target)?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              style={{
+                display: "flex", alignItems: "center", gap: "0.625rem",
+                padding: "0.625rem 0.75rem", borderRadius: "0.5rem",
+                background: "transparent", color: "#374151",
+                fontWeight: 500, fontSize: "0.875rem", cursor: "pointer",
+                border: "none", textAlign: "left", width: "100%",
+                fontFamily: "Montserrat, sans-serif",
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "#F3F4F6"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
               <Icon size={18} />{label}
-            </div>
+            </button>
           ))}
         </nav>
         <div style={{ padding: "0.875rem 1rem", borderTop: "1px solid #F3F4F6", display: "flex", flexDirection: "column", gap: "0.625rem" }}>
@@ -235,7 +246,7 @@ export default function AdminDashboard() {
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.5rem", alignItems: "start" }}>
 
           {/* Case feed — read-only */}
-          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+          <div id="section-case-feed" className="card" style={{ padding: 0, overflow: "hidden", scrollMarginTop: "1rem" }}>
             <div style={{ padding: "1rem 1.5rem", borderBottom: "1px solid #F3F4F6", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ fontSize: "0.9rem", fontWeight: 700, color: "#111827" }}>Live Case Feed</h2>
               <span style={{ fontSize: "0.75rem", color: "#6B7280" }}>{stats.total} total</span>
@@ -322,7 +333,7 @@ export default function AdminDashboard() {
           <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
             {/* Surge events */}
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div id="section-surge" className="card" style={{ padding: 0, overflow: "hidden", scrollMarginTop: "1rem" }}>
               <div style={{ padding: "0.875rem 1.25rem", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <RiRadarLine size={16} color="#D97706" />
                 <h2 style={{ fontSize: "0.875rem", fontWeight: 700, color: "#111827" }}>Surge Events</h2>
@@ -357,7 +368,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Capacity monitor */}
-            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div id="section-capacity" className="card" style={{ padding: 0, overflow: "hidden", scrollMarginTop: "1rem" }}>
               <div style={{ padding: "0.875rem 1.25rem", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <RiHospitalLine size={16} color="#1A56DB" />
                 <h2 style={{ fontSize: "0.875rem", fontWeight: 700, color: "#111827" }}>Live Capacity Monitor</h2>

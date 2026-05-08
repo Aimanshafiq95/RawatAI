@@ -43,6 +43,7 @@ export default function FrontDeskPage() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [refreshing, setRefreshing]   = useState(false);
   const [updatingId, setUpdatingId]   = useState<string | null>(null);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   // Auth gate — must be FRONTDESK
   useEffect(() => {
@@ -81,13 +82,25 @@ export default function FrontDeskPage() {
 
   async function advanceStatus(c: CaseRecord, next: CheckinStatus) {
     setUpdatingId(c.session_id);
-    await fetch(`/api/frontdesk/cases/${c.session_id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ checkin_status: next, staff_name: staff?.name }),
-    });
-    await fetchData(true);
-    setUpdatingId(null);
+    setUpdateError(null);
+    try {
+      const res = await fetch(`/api/frontdesk/cases/${c.session_id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkin_status: next, staff_name: staff?.name }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Failed to update status (${res.status})`);
+      }
+      await fetchData(true);
+    } catch (err: any) {
+      setUpdateError(`${c.patient_name}: ${err.message ?? "Network error"}`);
+      // Auto-clear after 6s so the banner doesn't pile up
+      setTimeout(() => setUpdateError(null), 6000);
+    } finally {
+      setUpdatingId(null);
+    }
   }
 
   if (!staff) return null;
@@ -118,11 +131,22 @@ export default function FrontDeskPage() {
             const Icon = s.icon;
             const count = grouped[s.key].length;
             return (
-              <div key={s.key} style={{ display: "flex", alignItems: "center", gap: "0.625rem", padding: "0.5rem 0.75rem", borderRadius: "0.5rem", color: "#374151", fontSize: "0.8rem" }}>
+              <button key={s.key}
+                onClick={() => document.getElementById(`col-${s.key}`)?.scrollIntoView({ behavior: "smooth", block: "start", inline: "start" })}
+                style={{
+                  display: "flex", alignItems: "center", gap: "0.625rem",
+                  padding: "0.5rem 0.75rem", borderRadius: "0.5rem",
+                  color: "#374151", fontSize: "0.8rem",
+                  background: "transparent", border: "none",
+                  cursor: "pointer", textAlign: "left", width: "100%",
+                  fontFamily: "Montserrat, sans-serif",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "#F3F4F6"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
                 <Icon size={16} color={s.color} />
                 <span style={{ flex: 1 }}>{s.label}</span>
                 <span style={{ fontSize: "0.65rem", fontWeight: 700, padding: "0.1rem 0.4rem", borderRadius: 9999, background: s.bg, color: s.color }}>{count}</span>
-              </div>
+              </button>
             );
           })}
         </nav>
@@ -173,13 +197,30 @@ export default function FrontDeskPage() {
           </button>
         </div>
 
+        {/* Update error banner */}
+        {updateError && (
+          <div style={{
+            background: "#FEE2E2", border: "1.5px solid #FCA5A5",
+            borderRadius: "0.625rem", padding: "0.75rem 1rem",
+            marginBottom: "1rem",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            fontSize: "0.85rem", color: "#991B1B", fontWeight: 500,
+          }}>
+            <span>⚠ Could not update — {updateError}</span>
+            <button onClick={() => setUpdateError(null)}
+              style={{ background: "transparent", border: "none", color: "#991B1B", cursor: "pointer", fontSize: "1.1rem", lineHeight: 1, padding: "0 0.25rem" }}>
+              ×
+            </button>
+          </div>
+        )}
+
         {/* Kanban columns */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem", alignItems: "start" }}>
           {STATUS_COLUMNS.map(col => {
             const Icon = col.icon;
             const items = grouped[col.key];
             return (
-              <div key={col.key} className="card" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 200px)" }}>
+              <div key={col.key} id={`col-${col.key}`} className="card" style={{ padding: 0, overflow: "hidden", display: "flex", flexDirection: "column", maxHeight: "calc(100vh - 200px)", scrollMarginTop: "1rem" }}>
                 <div style={{ padding: "0.875rem 1rem", borderBottom: "1px solid #F3F4F6", display: "flex", alignItems: "center", gap: "0.5rem", background: col.bg }}>
                   <Icon size={16} color={col.color} />
                   <h2 style={{ fontSize: "0.82rem", fontWeight: 700, color: col.color, letterSpacing: "0.04em" }}>{col.label.toUpperCase()}</h2>
