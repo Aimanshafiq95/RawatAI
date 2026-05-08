@@ -1,4 +1,17 @@
+// Optional pre-canned input for fast demos: when a patient logs in,
+// the triage page reads `seed` and pre-fills the symptoms card so the
+// demo person just clicks Continue without typing.
+export interface DemoSeed {
+  selectedSymptoms: string[];
+  freeText: string;
+  painScore: number;
+  painLocation?: "chest" | "abdomen" | "head" | "back" | "limb" | "other" | "";
+  /** Expected triage outcome — used for the login-page badge only, not enforced */
+  expectedPriority: "P1" | "P2" | "P3";
+}
+
 export const DEMO_USERS = [
+  // ── Manual demo accounts (Liyana types live for the jury) ─────────────────
   {
     id: "patient-001",
     name: "Ahmad Razif",
@@ -28,6 +41,103 @@ export const DEMO_USERS = [
       current_medications: ["Metformin 500mg"],
       recent_diagnoses: ["Diabetes follow-up"],
     },
+  },
+
+  // ── Pre-seeded demo accounts (one-click cases for populating doctor queue) ─
+  // P1 — clear cardiac emergency. Pain 9 + chest → forced to P1 by pain rule.
+  {
+    id: "patient-demo-p1",
+    name: "Encik Hassan",
+    phone: "0111111111",
+    password: "demo123",
+    role: "PATIENT",
+    icNumber: "680515-08-1122",
+    history: {
+      blood_type: "B+",
+      allergies: [],
+      chronic_conditions: ["Hypertension", "High cholesterol"],
+      current_medications: ["Amlodipine 10mg", "Atorvastatin 20mg"],
+      recent_diagnoses: ["Hypertension follow-up"],
+    },
+    seed: {
+      selectedSymptoms: ["Chest Pain", "Difficulty Breathing", "Dizziness"],
+      freeText: "Severe crushing chest pain that started 30 minutes ago, radiating down my left arm. Sweating heavily and feel short of breath.",
+      painScore: 9,
+      painLocation: "chest",
+      expectedPriority: "P1",
+    } as DemoSeed,
+  },
+
+  // P2 — fever >39°C lasting >2 days with chronic condition (forced P2 by duration + comorbidity)
+  {
+    id: "patient-demo-p2-a",
+    name: "Puan Aishah",
+    phone: "0122222222",
+    password: "demo123",
+    role: "PATIENT",
+    icNumber: "780923-14-3344",
+    history: {
+      blood_type: "O+",
+      allergies: ["Sulfa drugs"],
+      chronic_conditions: ["Type 2 Diabetes"],
+      current_medications: ["Metformin 850mg"],
+      recent_diagnoses: ["Diabetes follow-up"],
+    },
+    seed: {
+      selectedSymptoms: ["Fever", "Cough", "Body Aches", "Fatigue"],
+      freeText: "Fever measured 39.2°C for the last 3 days. Persistent dry cough getting worse at night. Body aches all over and very tired.",
+      painScore: 5,
+      painLocation: "head",
+      expectedPriority: "P2",
+    } as DemoSeed,
+  },
+
+  // P2 — pain 7 in abdomen (forced P2 minimum by pain rule for abdominal complaints)
+  {
+    id: "patient-demo-p2-b",
+    name: "Encik Faisal",
+    phone: "0133333333",
+    password: "demo123",
+    role: "PATIENT",
+    icNumber: "850612-10-5566",
+    history: {
+      blood_type: "AB+",
+      allergies: [],
+      chronic_conditions: [],
+      current_medications: [],
+      recent_diagnoses: [],
+    },
+    seed: {
+      selectedSymptoms: ["Severe Abdominal Pain", "Nausea", "Vomiting"],
+      freeText: "Sharp pain in my lower right abdomen since this morning. Vomited twice. Cannot eat. Pain gets much worse when I press on it.",
+      painScore: 7,
+      painLocation: "abdomen",
+      expectedPriority: "P2",
+    } as DemoSeed,
+  },
+
+  // P3 — mild cold, no red flags, mild pain
+  {
+    id: "patient-demo-p3",
+    name: "Cik Maya",
+    phone: "0144444444",
+    password: "demo123",
+    role: "PATIENT",
+    icNumber: "990108-14-7788",
+    history: {
+      blood_type: "A+",
+      allergies: [],
+      chronic_conditions: [],
+      current_medications: [],
+      recent_diagnoses: [],
+    },
+    seed: {
+      selectedSymptoms: ["Sore Throat", "Cough"],
+      freeText: "Mild sore throat and slight cough for the past 2 days. No fever. Just feels like a normal cold.",
+      painScore: 2,
+      painLocation: "",
+      expectedPriority: "P3",
+    } as DemoSeed,
   },
 ];
 

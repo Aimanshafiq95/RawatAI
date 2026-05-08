@@ -85,12 +85,14 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {/* Demo credentials */}
+        {/* Demo credentials — split into manual (typing demo) + pre-seeded (one-click) */}
         <div style={{ marginTop: "1.25rem", borderTop: "1px solid #F3F4F6", paddingTop: "1.25rem" }}>
-          <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.75rem" }}>
-            Demo Accounts
+
+          {/* Manual demo accounts */}
+          <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+            Manual Demo · type symptoms live
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginBottom: "1rem" }}>
             {[
               { name: "Ahmad Razif",    phone: "0123456789", note: "Hypertension" },
               { name: "Siti Nurhaliza", phone: "0198765432", note: "Type 2 Diabetes" },
@@ -98,12 +100,39 @@ export default function LoginPage() {
               <button
                 key={u.phone}
                 onClick={() => { setPhone(u.phone); setPassword("demo123"); }}
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "0.5rem", padding: "0.625rem 0.875rem", cursor: "pointer", width: "100%" }}>
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "0.5rem", padding: "0.5rem 0.75rem", cursor: "pointer", width: "100%" }}>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ fontSize: "0.8rem", fontWeight: 600, color: "#111827" }}>{u.name}</div>
-                  <div style={{ fontSize: "0.72rem", color: "#6B7280" }}>{u.note}</div>
+                  <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "#111827" }}>{u.name}</div>
+                  <div style={{ fontSize: "0.7rem", color: "#6B7280" }}>{u.note}</div>
                 </div>
-                <span style={{ fontSize: "0.72rem", color: "#1A56DB", fontWeight: 600 }}>Use →</span>
+                <span style={{ fontSize: "0.7rem", color: "#1A56DB", fontWeight: 600 }}>Use →</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Pre-seeded demo accounts — populate the doctor queue fast */}
+          <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.5rem" }}>
+            Pre-seeded · for queue demo
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
+            {[
+              { name: "Encik Hassan",  phone: "0111111111", note: "Crushing chest pain",     priority: "P1", color: "#E02424", bg: "#FEE2E2" },
+              { name: "Puan Aishah",   phone: "0122222222", note: "Fever 39°C, 3 days",      priority: "P2", color: "#1A56DB", bg: "#DBEAFE" },
+              { name: "Encik Faisal",  phone: "0133333333", note: "Severe abdominal pain",   priority: "P2", color: "#1A56DB", bg: "#DBEAFE" },
+              { name: "Cik Maya",      phone: "0144444444", note: "Mild sore throat",         priority: "P3", color: "#065F46", bg: "#D1FAE5" },
+            ].map((u) => (
+              <button
+                key={u.phone}
+                onClick={() => { setPhone(u.phone); setPassword("demo123"); }}
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "0.5rem", padding: "0.5rem 0.75rem", cursor: "pointer", width: "100%" }}>
+                <div style={{ textAlign: "left", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.6rem", fontWeight: 700, padding: "0.1rem 0.45rem", borderRadius: 9999, background: u.bg, color: u.color, letterSpacing: "0.04em" }}>{u.priority}</span>
+                  <div>
+                    <div style={{ fontSize: "0.78rem", fontWeight: 600, color: "#111827" }}>{u.name}</div>
+                    <div style={{ fontSize: "0.7rem", color: "#6B7280" }}>{u.note}</div>
+                  </div>
+                </div>
+                <span style={{ fontSize: "0.7rem", color: "#1A56DB", fontWeight: 600 }}>Use →</span>
               </button>
             ))}
           </div>
