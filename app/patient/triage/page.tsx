@@ -277,7 +277,19 @@ export default function TriagePage() {
   useEffect(() => {
     const u = localStorage.getItem("demo_user");
     if (!u) { window.location.href = "/login"; return; }
-    setUser(JSON.parse(u));
+    const parsed = JSON.parse(u);
+    setUser(parsed);
+
+    // Pre-fill the symptoms card from the demo seed (only on first mount, only when user
+    // is still on the symptoms step — never overwrite user-entered values).
+    if (parsed?.seed && cardStep === "symptoms" && selectedSymptoms.length === 0 && !freeText.trim()) {
+      const s = parsed.seed;
+      if (Array.isArray(s.selectedSymptoms)) setSelectedSymptoms(s.selectedSymptoms);
+      if (typeof s.freeText === "string")    setFreeText(s.freeText);
+      if (typeof s.painScore === "number")   setPainScore(s.painScore);
+      if (typeof s.painLocation === "string") setPainLocation(s.painLocation);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
