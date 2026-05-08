@@ -116,10 +116,11 @@ export default function LoginPage() {
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem" }}>
             {[
-              { name: "Encik Hassan",  phone: "0111111111", note: "Crushing chest pain",     priority: "P1", color: "#E02424", bg: "#FEE2E2" },
-              { name: "Puan Aishah",   phone: "0122222222", note: "Fever 39°C, 3 days",      priority: "P2", color: "#1A56DB", bg: "#DBEAFE" },
-              { name: "Encik Faisal",  phone: "0133333333", note: "Severe abdominal pain",   priority: "P2", color: "#1A56DB", bg: "#DBEAFE" },
-              { name: "Cik Maya",      phone: "0144444444", note: "Mild sore throat",         priority: "P3", color: "#065F46", bg: "#D1FAE5" },
+              { name: "Encik Hassan",  phone: "0111111111", note: "Crushing chest pain · pain 9",     priority: "P1", color: "#E02424", bg: "#FEE2E2" },
+              { name: "Encik Faisal",  phone: "0133333333", note: "Severe abdominal pain · pain 7",   priority: "P2", color: "#1A56DB", bg: "#DBEAFE" },
+              { name: "Puan Aishah",   phone: "0122222222", note: "Fever 39°C, 3 days · pain 5",      priority: "P2", color: "#1A56DB", bg: "#DBEAFE" },
+              { name: "Pak Ramli",     phone: "0155555555", note: "Persistent cough 1 week · pain 2", priority: "P2", color: "#1A56DB", bg: "#DBEAFE" },
+              { name: "Cik Maya",      phone: "0144444444", note: "Mild sore throat",                  priority: "P3", color: "#065F46", bg: "#D1FAE5" },
             ].map((u) => (
               <button
                 key={u.phone}

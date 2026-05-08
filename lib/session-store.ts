@@ -42,6 +42,9 @@ export interface CaseRecord {
   reviewed_at?: number;
   review_notes?: string;
   is_emergency?: boolean; // P1 — bypasses review, triggers call-999 + hospital pre-notify
+  // Pain context — feeds clinical severity scoring on the doctor dashboard
+  pain_score?: number;
+  pain_location?: string;
   // Front desk check-in tracking
   checkin_status?: CheckinStatus;
   checkin_updated_at?: number;

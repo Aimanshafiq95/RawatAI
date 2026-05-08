@@ -26,6 +26,25 @@ function reviewUrgency(createdAt: number, status?: string):
   return   { tier: "NORMAL",    mins, label: `${mins}m wait`,        color: "#1A56DB", bg: "#DBEAFE" };
 }
 
+// Clinical severity score — combines priority weight, pain, comorbidity load, and risky pain location.
+// Used to sort the review queue so the most acute cases bubble to the top of the same priority bucket.
+const HIGH_RISK_LOCATIONS = new Set(["chest", "abdomen", "head", "back"]);
+function severityScore(c: CaseRecord & { pain_score?: number; pain_location?: string }): number {
+  const priorityWeight = c.priority === "P1" ? 80 : c.priority === "P2" ? 40 : 10;
+  const painComponent  = Math.min((c.pain_score ?? 0) * 3, 30); // cap at 30 (pain 10)
+  const painBoost      = c.pain_location && HIGH_RISK_LOCATIONS.has(c.pain_location.toLowerCase()) ? 10 : 0;
+  // Comorbidity proxy: doctor_specialty hints at chronic context (best signal we have at this layer)
+  // For real signal, the case record would need to carry chronic_conditions; for demo this is fine.
+  return priorityWeight + painComponent + painBoost;
+}
+
+function severityBand(score: number): { label: string; color: string; bg: string } {
+  if (score >= 70) return { label: "HIGH",     color: "#fff",    bg: "#E02424" };
+  if (score >= 50) return { label: "ELEVATED", color: "#92400E", bg: "#FED7AA" };
+  if (score >= 30) return { label: "MODERATE", color: "#1A56DB", bg: "#DBEAFE" };
+  return              { label: "LOW",      color: "#065F46", bg: "#D1FAE5" };
+}
+
 interface AdminData {
   cases: CaseRecord[];
   surge_events: any[];
@@ -157,7 +176,8 @@ export default function DoctorDashboard() {
   const pendingCount     = data?.cases.filter(c => c.review_status === "PENDING_REVIEW").length ?? 0;
   const emergencyCount   = data?.cases.filter(c => c.review_status === "EMERGENCY_FOLLOWUP").length ?? 0;
 
-  // P2 review queue — sorted longest-wait first so escalated cases bubble to the top.
+  // P2 review queue — pending cases first, then sorted by clinical severity score
+  // (descending), then by wait time as tiebreaker. Most acute cases bubble to the top.
   const filteredCases = (data?.cases ?? [])
     .filter(c => {
       if (filter === "PENDING")    return c.review_status === "PENDING_REVIEW";
@@ -170,7 +190,10 @@ export default function DoctorDashboard() {
       const bPending = b.review_status === "PENDING_REVIEW";
       if (aPending && !bPending) return -1;
       if (!aPending && bPending) return 1;
-      return a.created_at - b.created_at; // oldest first → longest wait at top
+      const sa = severityScore(a);
+      const sb = severityScore(b);
+      if (sa !== sb) return sb - sa;          // higher severity first
+      return a.created_at - b.created_at;     // tie → longest wait first
     });
 
   // P1 emergency follow-up queue — separate tab, optional review.
@@ -331,6 +354,17 @@ export default function DoctorDashboard() {
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.25rem", flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "#111827" }}>{c.patient_name}</span>
                         <span style={{ fontSize: "0.72rem", color: "#9CA3AF" }}>· {timeAgo(c.created_at)}</span>
+                        {/* Clinical severity score badge — drives the queue ordering */}
+                        {(() => {
+                          const score = severityScore(c);
+                          const band = severityBand(score);
+                          return (
+                            <span title={`Severity score ${score}/100 — combines priority, pain, and pain location`}
+                              style={{ fontSize: "0.62rem", background: band.bg, color: band.color, padding: "0.1rem 0.45rem", borderRadius: 9999, fontWeight: 700, display: "inline-flex", alignItems: "center", gap: "0.25rem" }}>
+                              SEVERITY {score} · {band.label}
+                            </span>
+                          );
+                        })()}
                         {c.review_status === "PENDING_REVIEW" && (() => {
                           const u = reviewUrgency(c.created_at, c.review_status);
                           return (

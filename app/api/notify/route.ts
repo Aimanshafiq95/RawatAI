@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
       checkin_updated_at: Date.now(),
       review_status:      reviewStatus,
       is_emergency:       isEmergency,
+      pain_score:         typeof payload.pain_score === "number" ? payload.pain_score : undefined,
+      pain_location:      typeof payload.pain_location === "string" ? payload.pain_location : undefined,
       differentials:      Array.isArray(payload.differentials) ? payload.differentials : undefined,
     };
     cases.set(payload.session_id, record);

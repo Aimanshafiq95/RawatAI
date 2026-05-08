@@ -550,7 +550,7 @@ export default function TriagePage() {
 
       await fetch("/api/notify", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: sid, patient_name: user?.name, priority: tData.priority, summary: tData.summary, symptoms: symptomsText, facility_id: rData.recommended?.id ?? "", facility_name: rData.recommended?.name ?? "", doctor_name: aData.doctor?.name ?? "", doctor_specialty: aData.doctor?.specialty ?? "", differentials: tData.differentials }),
+        body: JSON.stringify({ session_id: sid, patient_name: user?.name, priority: tData.priority, summary: tData.summary, symptoms: symptomsText, facility_id: rData.recommended?.id ?? "", facility_name: rData.recommended?.name ?? "", doctor_name: aData.doctor?.name ?? "", doctor_specialty: aData.doctor?.specialty ?? "", differentials: tData.differentials, pain_score: painScore, pain_location: painLocation || undefined }),
       });
 
       // Mark this session for HITL polling. P1 → emergency screen, P2 → wait for review, P3 → auto-approved.
