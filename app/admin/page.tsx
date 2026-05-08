@@ -7,7 +7,7 @@ import {
   RiUserHeartLine, RiRefreshLine, RiRadarLine,
   RiCheckLine, RiArrowRightUpLine, RiTimeLine,
   RiGroupLine, RiShieldCrossLine, RiLogoutBoxLine,
-  RiEyeLine,
+  RiEyeLine, RiStethoscopeLine,
 } from "react-icons/ri";
 import type { DemoStaff } from "@/lib/demo-users";
 
@@ -28,7 +28,16 @@ interface CaseRecord {
   override_priority?: "P1" | "P2" | "P3";
   override_notes?: string;
   overridden_at?: number;
+  review_status?: "PENDING_REVIEW" | "REVIEWED" | "AUTO_APPROVED";
+  reviewed_by?: string;
+  is_emergency?: boolean;
 }
+
+const REVIEW_STYLE: Record<string, { color: string; bg: string; label: string }> = {
+  PENDING_REVIEW: { color: "#92400E", bg: "#FEF3C7", label: "PENDING REVIEW" },
+  REVIEWED:       { color: "#065F46", bg: "#D1FAE5", label: "REVIEWED" },
+  AUTO_APPROVED:  { color: "#1F2937", bg: "#F3F4F6", label: "AUTO-APPROVED" },
+};
 
 interface SurgeEvent {
   facility_id: string;
@@ -135,6 +144,7 @@ export default function AdminDashboard() {
   if (!admin) return null;
 
   const stats = data?.stats ?? { total: 0, p1: 0, p2: 0, p3: 0, surges: 0 };
+  const pendingReviewCount = (data?.cases ?? []).filter(c => c.review_status === "PENDING_REVIEW").length;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F9FAFB" }}>
@@ -211,12 +221,13 @@ export default function AdminDashboard() {
         </div>
 
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "1rem", marginBottom: "1.75rem" }}>
-          <StatCard icon={RiGroupLine}  label="Total Cases"  value={stats.total}  color="#1A56DB" bg="#EFF6FF" />
-          <StatCard icon={RiAlertLine}  label="P1 Critical"  value={stats.p1}     color="#E02424" bg="#FEE2E2" />
-          <StatCard icon={RiTimeLine}   label="P2 Urgent"    value={stats.p2}     color="#1A56DB" bg="#DBEAFE" />
-          <StatCard icon={RiCheckLine}  label="P3 Routine"   value={stats.p3}     color="#065F46" bg="#D1FAE5" />
-          <StatCard icon={RiRadarLine}  label="Surge Events" value={stats.surges} color="#D97706" bg="#FEF3C7" />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "1rem", marginBottom: "1.75rem" }}>
+          <StatCard icon={RiGroupLine}      label="Total Cases"     value={stats.total}        color="#1A56DB" bg="#EFF6FF" />
+          <StatCard icon={RiAlertLine}      label="P1 Critical"     value={stats.p1}           color="#E02424" bg="#FEE2E2" />
+          <StatCard icon={RiTimeLine}       label="P2 Urgent"       value={stats.p2}           color="#1A56DB" bg="#DBEAFE" />
+          <StatCard icon={RiCheckLine}      label="P3 Routine"      value={stats.p3}           color="#065F46" bg="#D1FAE5" />
+          <StatCard icon={RiStethoscopeLine} label="Pending Review" value={pendingReviewCount} color="#92400E" bg="#FEF3C7" />
+          <StatCard icon={RiRadarLine}      label="Surge Events"    value={stats.surges}       color="#D97706" bg="#FEF3C7" />
         </div>
 
         {/* Two-column */}
@@ -242,7 +253,7 @@ export default function AdminDashboard() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "#F9FAFB" }}>
-                      {["Priority", "Patient", "Department / Doctor", "Facility", "Time"].map(h => (
+                      {["Priority", "Status", "Patient", "Department / Doctor", "Facility", "Time"].map(h => (
                         <th key={h} style={{ padding: "0.625rem 1rem", textAlign: "left", fontSize: "0.68rem", fontWeight: 700, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "1px solid #F3F4F6", whiteSpace: "nowrap" }}>{h}</th>
                       ))}
                     </tr>
@@ -255,6 +266,7 @@ export default function AdminDashboard() {
                       const dept   = c.override_department ?? c.doctor_specialty;
                       const doc    = c.override_doctor ?? c.doctor_name;
 
+                      const rs = REVIEW_STYLE[c.review_status ?? "AUTO_APPROVED"];
                       return (
                         <tr key={c.session_id} style={{ borderBottom: "1px solid #F9FAFB" }}>
                           <td style={{ padding: "0.75rem 1rem" }}>
@@ -263,6 +275,15 @@ export default function AdminDashboard() {
                               <div style={{ fontSize: "0.62rem", color: "#9CA3AF", marginTop: "0.2rem", textDecoration: "line-through" }}>
                                 was {aiPs.label}
                               </div>
+                            )}
+                          </td>
+                          <td style={{ padding: "0.75rem 1rem", whiteSpace: "nowrap" }}>
+                            <span style={{ display: "inline-block", background: rs.bg, color: rs.color, padding: "0.2rem 0.55rem", borderRadius: 9999, fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.02em" }}>{rs.label}</span>
+                            {c.is_emergency && (
+                              <div style={{ fontSize: "0.62rem", color: "#E02424", marginTop: "0.2rem", fontWeight: 700 }}>● EMERGENCY</div>
+                            )}
+                            {c.reviewed_by && (
+                              <div style={{ fontSize: "0.62rem", color: "#9CA3AF", marginTop: "0.2rem" }}>by {c.reviewed_by}</div>
                             )}
                           </td>
                           <td style={{ padding: "0.75rem 1rem", fontWeight: 600, fontSize: "0.85rem", color: "#111827", whiteSpace: "nowrap" }}>
