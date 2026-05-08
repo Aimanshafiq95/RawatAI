@@ -1,7 +1,15 @@
 // Shared in-memory store anchored to globalThis so it survives Next.js HMR hot reloads
 
 export type CheckinStatus = "PENDING" | "ARRIVED" | "IN_TREATMENT" | "DISCHARGED";
-export type ReviewStatus = "PENDING_REVIEW" | "REVIEWED" | "AUTO_APPROVED";
+// EMERGENCY_FOLLOWUP — P1 case, patient already routed to ambulance/ER,
+// doctor review is OPTIONAL but recommended for oversight + audit.
+export type ReviewStatus = "PENDING_REVIEW" | "REVIEWED" | "AUTO_APPROVED" | "EMERGENCY_FOLLOWUP";
+
+// SLA thresholds for P2 review escalation (minutes)
+export const REVIEW_SLA = {
+  ESCALATED_AFTER_MIN: 5,   // moves to top of queue, orange badge
+  CRITICAL_AFTER_MIN:  10,  // red badge, eligible for cross-specialty fallback
+} as const;
 
 export interface Differential {
   condition: string;

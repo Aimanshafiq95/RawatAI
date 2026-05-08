@@ -10,11 +10,15 @@ export async function POST(req: NextRequest) {
 
   if (payload.session_id) {
     const priority = payload.priority ?? "P3";
-    // P1 → emergency: bypass review, patient sees Call-999 UI
-    // P2 → human-in-the-loop: pause for doctor review before patient sees final
-    // P3 → routine: auto-approved
+    // P1 → patient still routed immediately to ambulance/ER (Call-999 UI),
+    //      but doctor gets an EMERGENCY_FOLLOWUP queue to optionally review/override.
+    // P2 → mandatory human-in-the-loop: patient waits for doctor review.
+    // P3 → routine: auto-approved.
     const isEmergency  = priority === "P1";
-    const reviewStatus = priority === "P2" ? "PENDING_REVIEW" : "AUTO_APPROVED";
+    const reviewStatus =
+        priority === "P1" ? "EMERGENCY_FOLLOWUP"
+      : priority === "P2" ? "PENDING_REVIEW"
+      :                     "AUTO_APPROVED";
 
     const record: CaseRecord = {
       session_id:         payload.session_id,

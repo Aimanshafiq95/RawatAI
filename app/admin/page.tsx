@@ -28,15 +28,16 @@ interface CaseRecord {
   override_priority?: "P1" | "P2" | "P3";
   override_notes?: string;
   overridden_at?: number;
-  review_status?: "PENDING_REVIEW" | "REVIEWED" | "AUTO_APPROVED";
+  review_status?: "PENDING_REVIEW" | "REVIEWED" | "AUTO_APPROVED" | "EMERGENCY_FOLLOWUP";
   reviewed_by?: string;
   is_emergency?: boolean;
 }
 
 const REVIEW_STYLE: Record<string, { color: string; bg: string; label: string }> = {
-  PENDING_REVIEW: { color: "#92400E", bg: "#FEF3C7", label: "PENDING REVIEW" },
-  REVIEWED:       { color: "#065F46", bg: "#D1FAE5", label: "REVIEWED" },
-  AUTO_APPROVED:  { color: "#1F2937", bg: "#F3F4F6", label: "AUTO-APPROVED" },
+  PENDING_REVIEW:     { color: "#92400E", bg: "#FEF3C7", label: "PENDING REVIEW" },
+  REVIEWED:           { color: "#065F46", bg: "#D1FAE5", label: "REVIEWED" },
+  AUTO_APPROVED:      { color: "#1F2937", bg: "#F3F4F6", label: "AUTO-APPROVED" },
+  EMERGENCY_FOLLOWUP: { color: "#E02424", bg: "#FEE2E2", label: "P1 FOLLOW-UP" },
 };
 
 interface SurgeEvent {

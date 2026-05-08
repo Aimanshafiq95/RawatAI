@@ -70,42 +70,43 @@ export function getRequiredSpecialty(
   return "General Practitioner";
 }
 
-// Find the best available doctor for a given location and specialty
+// Find the best available doctor for a given location and specialty.
+// When loadMap is supplied, prefer the doctor with the lowest pending-review
+// queue (load-balancing), with geographic distance as the tiebreaker.
+// loadMap[doctor.name] = number of cases currently assigned to them with
+// review_status === "PENDING_REVIEW" or "EMERGENCY_FOLLOWUP".
 export function assignDoctor(
   lat: number,
   lon: number,
   specialty: Specialty,
-  facilityState?: string
+  facilityState?: string,
+  loadMap?: Map<string, number>,
 ): VirtualDoctor {
+  function pickBest(candidates: VirtualDoctor[]): VirtualDoctor {
+    return [...candidates].sort((a, b) => {
+      const loadA = loadMap?.get(a.name) ?? 0;
+      const loadB = loadMap?.get(b.name) ?? 0;
+      if (loadA !== loadB) return loadA - loadB;          // least busy first
+      return haversine(lat, lon, a.lat, a.lon)
+           - haversine(lat, lon, b.lat, b.lon);            // then nearest
+    })[0];
+  }
+
   // 1st preference: matching specialty in same state
   const sameStateMatch = DOCTORS.filter(
     (d) => d.specialty === specialty && d.state === facilityState
   );
-  if (sameStateMatch.length > 0) {
-    return sameStateMatch.reduce((a, b) =>
-      haversine(lat, lon, a.lat, a.lon) <= haversine(lat, lon, b.lat, b.lon) ? a : b
-    );
-  }
+  if (sameStateMatch.length > 0) return pickBest(sameStateMatch);
 
-  // 2nd preference: matching specialty, nearest geographically
+  // 2nd preference: matching specialty, any state
   const specialtyMatch = DOCTORS.filter((d) => d.specialty === specialty);
-  if (specialtyMatch.length > 0) {
-    return specialtyMatch.reduce((a, b) =>
-      haversine(lat, lon, a.lat, a.lon) <= haversine(lat, lon, b.lat, b.lon) ? a : b
-    );
-  }
+  if (specialtyMatch.length > 0) return pickBest(specialtyMatch);
 
-  // 3rd preference: Emergency Medicine fallback for P2, General for P3
+  // 3rd preference: Emergency Medicine fallback (or General Medicine for P3)
   const fallbackSpecialty: Specialty = specialty === "General Practitioner" ? "General Medicine" : "Emergency Medicine";
   const fallback = DOCTORS.filter((d) => d.specialty === fallbackSpecialty);
-  if (fallback.length > 0) {
-    return fallback.reduce((a, b) =>
-      haversine(lat, lon, a.lat, a.lon) <= haversine(lat, lon, b.lat, b.lon) ? a : b
-    );
-  }
+  if (fallback.length > 0) return pickBest(fallback);
 
-  // Final fallback: nearest doctor of any specialty
-  return DOCTORS.reduce((a, b) =>
-    haversine(lat, lon, a.lat, a.lon) <= haversine(lat, lon, b.lat, b.lon) ? a : b
-  );
+  // Final fallback: any doctor
+  return pickBest(DOCTORS);
 }
